@@ -1,53 +1,108 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
-require('dotenv').config();
-
-const jobRoutes = require('./routes/jobRoutes');
-const { connectDB } = require('./config/database');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Connect to database
-connectDB();
-
-// Middleware
-app.use(cors());
-app.use(express.json());
-
-// Routes
-app.use('/api/jobs', jobRoutes);
-
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ message: 'JINDER API is running', status: 'OK' });
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100 // limit each IP to 100 requests per windowMs
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Error:', err.stack);
-  res.status(err.status || 500).json({
-    error: {
-      message: err.message || 'Internal Server Error',
-      status: err.status || 500
-    }
+// Middleware
+app.use(helmet());
+app.use(limiter);
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['https://your-frontend-domain.com'] 
+    : ['http://localhost:3000', 'http://localhost:3001'],
+  credentials: true,
+  optionsSuccessStatus: 200
+}));
+
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Request logging middleware
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
   });
 });
 
-// Handle 404 routes
+// API Routes
+app.use('/api/jobs', require('./routes/jobs'));
+
+// 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({
-    error: {
-      message: 'Route not found',
-      status: 404
-    }
+    success: false,
+    message: 'Route not found',
+    path: req.originalUrl
+  });
+});
+
+// Global error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Error occurred:', {
+    message: err.message,
+    stack: err.stack,
+    url: req.url,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+
+  // Don't leak error details in production
+  const isDevelopment = process.env.NODE_ENV !== 'production';
+  
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || 'Internal server error',
+    ...(isDevelopment && { stack: err.stack })
+  });
+});
+
+// Graceful shutdown handling
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully');
+  server.close(() => {
+    console.log('Process terminated');
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received, shutting down gracefully');
+  server.close(() => {
+    console.log('Process terminated');
+    process.exit(0);
   });
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`🚀 JINDER API server is running on port ${PORT}`);
-  console.log(`📍 Server URL: http://localhost:${PORT}`);
-  console.log(`🔗 API Health Check: http://localhost:${PORT}/api/health`);
+const server = app.listen(PORT, () => {
+  console.log(`🚀 JINDER Backend Server running on port ${PORT}`);
+  console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🕒 Started at: ${new Date().toISOString()}`);
 });
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (err, promise) => {
+  console.error('Unhandled Promise Rejection:', err.message);
+  server.close(() => {
+    process.exit(1);
+  });
+});
+
+module.exports = app;
