@@ -1,27 +1,25 @@
 {
-  "name": "job-tracker",
+  "name": "fullstack-project",
   "version": "1.0.0",
-  "description": "A comprehensive job application tracker with React frontend and Node.js backend",
-  "main": "server/index.js",
+  "description": "A comprehensive fullstack application with Express backend and React frontend",
+  "main": "backend/server.js",
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run client\"",
-    "server": "cd server && npm run dev",
-    "client": "cd client && npm start",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "build": "cd client && npm run build",
-    "start": "cd server && npm start"
+    "server": "cd backend && npm run dev",
+    "client": "cd frontend && npm start",
+    "install-deps": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "build": "cd frontend && npm run build",
+    "start": "cd backend && npm start"
   },
+  "keywords": [
+    "fullstack",
+    "express",
+    "react",
+    "nodejs"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
   "devDependencies": {
-    "jest": "^29.0.0",
-    "@testing-library/react": "^13.0.0",
-    "@testing-library/jest-dom": "^5.16.0",
-    "@testing-library/user-event": "^14.0.0",
     "concurrently": "^7.6.0"
-  },
-  "jest": {
-    "testEnvironment": "jsdom",
-    "setupFilesAfterEnv": ["<rootDir>/src/setupTests.js"]
-  },
-  "keywords": ["job-tracker", "react", "nodejs", "express", "mongodb"]
+  }
 }
