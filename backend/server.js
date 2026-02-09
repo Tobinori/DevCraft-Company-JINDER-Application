@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const path = require('path');
 
 // Load environment variables
 dotenv.config();
@@ -15,30 +14,39 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/jobs', require('./routes/jobs'));
-app.use('/api/applications', require('./routes/applications'));
+app.get('/', (req, res) => {
+  res.json({ message: 'JINDER API Server is running!' });
+});
 
-// Serve static assets in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../frontend/build')));
-  
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/build/index.html'));
-  });
-}
+// Job routes
+app.get('/api/jobs', (req, res) => {
+  res.json({ message: 'Get all jobs endpoint' });
+});
+
+app.post('/api/jobs', (req, res) => {
+  res.json({ message: 'Create job endpoint' });
+});
+
+app.put('/api/jobs/:id', (req, res) => {
+  res.json({ message: `Update job ${req.params.id} endpoint` });
+});
+
+app.delete('/api/jobs/:id', (req, res) => {
+  res.json({ message: `Delete job ${req.params.id} endpoint` });
+});
 
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).json({ message: 'Something went wrong!' });
+  res.status(500).json({ error: 'Something went wrong!' });
 });
 
 // 404 handler
-app.use((req, res) => {
-  res.status(404).json({ message: 'Route not found' });
+app.use('*', (req, res) => {
+  res.status(404).json({ error: 'Route not found' });
 });
 
+// Start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
