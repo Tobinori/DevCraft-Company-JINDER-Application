@@ -1,24 +1,23 @@
-# Project Architecture Base Structure
+# JINDER - Dating App
 
-## Overview
-This repository contains the base architecture structure for our project.
-
-## Directory Structure
-```
-├── src/
-│   ├── components/
-│   ├── services/
-│   ├── utils/
-│   └── config/
-├── tests/
-├── docs/
-└── README.md
-```
+A modern dating application built with React and Node.js.
 
 ## Getting Started
-- Clone the repository
-- Install dependencies
-- Follow setup instructions in docs/
 
-## Architecture Notes
-Base structure implemented with modular design principles.
+1. Clone the repository
+2. Install dependencies: `npm install`
+3. Start development server: `npm run dev`
+
+## Project Structure
+
+- `/frontend` - React application
+- `/backend` - Node.js API server
+- `/docs` - Documentation
+
+## Development Guidelines
+
+- Follow conventional commit messages
+- Create feature branches from main
+- All PRs require code review
+
+Project started: February 2026
