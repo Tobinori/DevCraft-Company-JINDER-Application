@@ -1,52 +1,33 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const dotenv = require('dotenv');
 
-// Load environment variables
-dotenv.config();
-
-// Create Express app instance
 const app = express();
-const PORT = process.env.PORT || 3001;
 
 // Middleware
-app.use(cors());
 app.use(express.json());
+app.use(cors());
 
 // Health check route
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok' });
-});
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Error:', err.stack);
-  res.status(500).json({ 
-    error: 'Something went wrong!',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'Internal server error'
+  res.status(200).json({
+    status: 'OK',
+    message: 'JINDER API is running',
+    timestamp: new Date().toISOString()
   });
 });
 
-// 404 handler
-app.use('*', (req, res) => {
-  res.status(404).json({ error: 'Route not found' });
-});
+// TODO: Add database connection setup
+// TODO: Import and use route handlers
+// TODO: Add error handling middleware
+// TODO: Add authentication middleware
+// TODO: Add logging middleware
 
-// Start server with error handling
-const server = app.listen(PORT, (err) => {
-  if (err) {
-    console.error('Failed to start server:', err);
-    process.exit(1);
-  }
-  console.log(`Server running on http://localhost:${PORT}`);
-});
+// Set port from environment or default to 5000
+const PORT = process.env.PORT || 5000;
 
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('SIGTERM received, shutting down gracefully');
-  server.close(() => {
-    console.log('Process terminated');
-  });
+// Start server
+app.listen(PORT, () => {
+  console.log(`JINDER server is running on port ${PORT}`);
+  console.log(`Health check available at: http://localhost:${PORT}/api/health`);
 });
-
-module.exports = app;
