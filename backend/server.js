@@ -1,33 +1,35 @@
-require('dotenv').config();
+// Import required modules
 const express = require('express');
 const cors = require('cors');
+require('dotenv').config();
 
+// Initialize Express app
 const app = express();
+const PORT = process.env.PORT || 3001;
 
-// Middleware
-app.use(express.json());
-app.use(cors());
+// Middleware setup
+app.use(express.json()); // Parse JSON bodies
+app.use(cors()); // Enable CORS for all routes
 
 // Health check route
-app.get('/api/health', (req, res) => {
+app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'OK',
-    message: 'JINDER API is running',
+    message: 'JINDER backend server is running',
     timestamp: new Date().toISOString()
   });
 });
 
-// TODO: Add database connection setup
-// TODO: Import and use route handlers
-// TODO: Add error handling middleware
-// TODO: Add authentication middleware
-// TODO: Add logging middleware
-
-// Set port from environment or default to 5000
-const PORT = process.env.PORT || 5000;
+// MongoDB connection placeholder
+// TODO: Implement MongoDB connection
+// const mongoose = require('mongoose');
+// mongoose.connect(process.env.MONGODB_URI, {
+//   useNewUrlParser: true,
+//   useUnifiedTopology: true
+// });
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`JINDER server is running on port ${PORT}`);
-  console.log(`Health check available at: http://localhost:${PORT}/api/health`);
+  console.log(`JINDER backend server is running on port ${PORT}`);
+  console.log(`Health check available at http://localhost:${PORT}/health`);
 });
