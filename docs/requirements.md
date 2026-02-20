@@ -1,316 +1,258 @@
-# JINDER - Job Application Tracker Requirements
+# JINDER - Job Application Tracker
+## Project Requirements Document
 
-## Project Overview
-JINDER is a job application tracking system that helps users manage their job search process efficiently. The application allows users to track job applications, monitor their status, and analyze their job search progress.
+### Project Overview
+JINDER is a comprehensive job application tracking system designed to help job seekers organize, manage, and monitor their job search process. The application provides a centralized platform for storing job application details, tracking application status, and managing the entire job search workflow.
 
-## User Stories
+### Core Features
 
-### Epic 1: Job Management
+#### 1. Job Application Management
+- Add new job applications
+- Edit existing job applications
+- Delete job applications
+- View detailed job application information
 
-#### US-001: Add New Job Application
-**As a** job seeker  
-**I want to** add new job applications with detailed information  
-**So that** I can track all my applications in one place  
+#### 2. Application Status Tracking
+- **Applied**: Initial application submitted
+- **Interview Scheduled**: Interview has been scheduled
+- **Offer Received**: Job offer has been received
+- **Rejected**: Application has been rejected
+- Status transition tracking with timestamps
+
+#### 3. Company and Position Information
+- Company name and details
+- Position title and description
+- Job requirements and qualifications
+- Salary range (if available)
+- Job posting URL
+
+#### 4. Application Timeline
+- Application submission date
+- Interview dates and types
+- Follow-up dates
+- Decision dates
+
+#### 5. Notes and Documentation
+- Personal notes for each application
+- Interview preparation notes
+- Contact information
+- Application-specific reminders
+
+#### 6. Search and Filter Capabilities
+- Search by company name
+- Search by position title
+- Filter by application status
+- Filter by date range
+- Sort by various criteria
+
+### User Stories
+
+#### Epic 1: Job Application Management
+
+**US-001: Add New Job Application**
+- **As a** job seeker
+- **I want to** add a new job application to my tracker
+- **So that** I can keep track of all positions I've applied for
 
 **Acceptance Criteria:**
 - User can input company name (required)
 - User can input position title (required)
-- User can input salary range or expected salary
-- User can set initial application status (default: "Applied")
-- User can add job description/notes
-- User can input application date (defaults to current date)
-- User can add job posting URL
-- User can specify job location
-- Form validation prevents submission with missing required fields
-- Success message confirms job addition
+- User can input application date (required, defaults to current date)
+- User can input job posting URL (optional)
+- User can input salary range (optional)
+- User can add initial notes (optional)
+- Status is automatically set to "Applied"
+- System validates required fields before saving
+- Success message is displayed upon successful creation
 
-#### US-002: View Job Applications List
-**As a** job seeker  
-**I want to** view all my job applications in an organized list  
-**So that** I can quickly see my application status  
-
-**Acceptance Criteria:**
-- Display jobs in a table/card format
-- Show company name, position, salary, status, and application date
-- Default sort by application date (newest first)
-- Show total number of applications
-- Empty state message when no jobs exist
-- Responsive design for mobile and desktop
-
-#### US-003: Filter and Search Jobs
-**As a** job seeker  
-**I want to** filter and search my job applications  
-**So that** I can quickly find specific applications  
+**US-002: Edit Job Application**
+- **As a** job seeker
+- **I want to** edit my job application details
+- **So that** I can update information as my application progresses
 
 **Acceptance Criteria:**
-- Filter by application status (Applied/Interview/Offer/Rejected)
-- Filter by salary range
-- Search by company name or position title
-- Filter by date range
-- Clear all filters option
-- Show count of filtered results
-- Filters persist during session
+- User can access edit form from application list or detail view
+- All fields are editable except creation timestamp
+- Changes are saved immediately or with explicit save action
+- System maintains audit trail of changes
+- Validation ensures data integrity
 
-#### US-004: Update Application Status
-**As a** job seeker  
-**I want to** update the status of my job applications  
-**So that** I can track my progress through the hiring process  
+**US-003: Delete Job Application**
+- **As a** job seeker
+- **I want to** delete job applications
+- **So that** I can remove applications that are no longer relevant
 
 **Acceptance Criteria:**
-- Status options: Applied, Interview Scheduled, Interview Completed, Offer Received, Rejected, Withdrawn
-- Quick status update from list view
-- Detailed edit form for additional information
-- Status change timestamps are recorded
-- Visual indicators for different statuses
-- Confirmation before status change
+- User can delete applications from list or detail view
+- Confirmation dialog prevents accidental deletion
+- Soft delete maintains data for potential recovery
+- Deleted applications are excluded from main views
 
-#### US-005: Edit Job Details
-**As a** job seeker  
-**I want to** edit job application details  
-**So that** I can keep information accurate and up-to-date  
+#### Epic 2: Status Tracking
 
-**Acceptance Criteria:**
-- Edit all job fields except creation date
-- Form pre-populated with existing data
-- Validation on required fields
-- Save changes confirmation
-- Cancel option returns to previous state
-- Edit history/audit trail
-
-#### US-006: Delete Job Applications
-**As a** job seeker  
-**I want to** delete job applications  
-**So that** I can remove irrelevant or duplicate entries  
+**US-004: Update Application Status**
+- **As a** job seeker
+- **I want to** update the status of my job applications
+- **So that** I can track the progress of each application
 
 **Acceptance Criteria:**
-- Delete confirmation dialog
-- Soft delete with recovery option (optional)
-- Bulk delete functionality
-- Cannot delete jobs with offers (business rule)
+- User can select from predefined status options
+- Status change triggers timestamp recording
+- Previous status history is maintained
+- Visual indicators show current status clearly
+- Status updates can include optional notes
 
-### Epic 2: Analytics and Reporting
-
-#### US-007: View Application Analytics
-**As a** job seeker  
-**I want to** see analytics about my job search  
-**So that** I can understand my job search patterns and success rate  
-
-**Acceptance Criteria:**
-- Total applications count
-- Applications by status (pie chart or bar chart)
-- Success rate calculation (offers/total applications)
-- Average time between application and response
-- Applications per week/month trends
-- Top companies applied to
-- Salary range distribution
-
-#### US-008: Export Data
-**As a** job seeker  
-**I want to** export my job application data  
-**So that** I can backup my data or use it in other tools  
+**US-005: View Status History**
+- **As a** job seeker
+- **I want to** see the history of status changes for each application
+- **So that** I can understand the timeline of my application process
 
 **Acceptance Criteria:**
-- Export to CSV format
-- Export to PDF report
-- Include all job fields
-- Filter data before export
-- Email export option
+- Timeline view shows all status changes with dates
+- Notes associated with status changes are displayed
+- Duration in each status is calculated and shown
+- History is sorted chronologically
 
-## UI Mockup Descriptions
+#### Epic 3: Search and Filter
 
-### Dashboard/Home Page
-- **Header**: JINDER logo, navigation menu, user profile
-- **Summary Cards**: Total jobs (4), Pending interviews (2), Offers received (1), Rejected (1)
-- **Quick Actions**: "Add New Job" prominent button
-- **Recent Activity**: Last 5 job updates with timestamps
-- **Charts**: Status distribution pie chart, applications over time line chart
+**US-006: Search Applications**
+- **As a** job seeker
+- **I want to** search through my job applications
+- **So that** I can quickly find specific applications
 
-### Job List Page
-- **Header**: Page title "My Applications", Add Job button
-- **Filters Section**: Status dropdown, salary range slider, date picker, search bar
-- **Jobs Table/Grid**:
-  - Company logo (if available) or placeholder
-  - Company name and position title
-  - Salary range
-  - Status badge (color-coded)
-  - Application date
-  - Action buttons (Edit, Delete, Quick Status Change)
-- **Pagination**: If more than 20 jobs
-- **Bulk Actions**: Select multiple, bulk status update, bulk delete
+**Acceptance Criteria:**
+- Search functionality works across company name, position title, and notes
+- Search is case-insensitive
+- Search results are highlighted
+- Search can be combined with filters
+- Clear search functionality resets results
 
-### Add/Edit Job Form
-- **Modal or dedicated page**
-- **Required fields**: Company name*, Position title*
-- **Optional fields**: Salary, Job description, URL, Location, Notes
-- **Status dropdown**: Default "Applied"
-- **Date picker**: Application date
-- **Form validation**: Real-time validation messages
-- **Actions**: Save, Cancel, Save & Add Another
+**US-007: Filter Applications**
+- **As a** job seeker
+- **I want to** filter my applications by various criteria
+- **So that** I can focus on specific subsets of my applications
 
-### Analytics Page
-- **KPI Cards**: Success rate, avg response time, total applications
-- **Charts Section**:
-  - Status distribution (donut chart)
-  - Applications timeline (line chart)
-  - Salary distribution (histogram)
-- **Tables**: Top companies, longest pending applications
-- **Export Options**: CSV, PDF buttons
+**Acceptance Criteria:**
+- Filter by application status
+- Filter by date range (application date, last updated)
+- Filter by company name
+- Multiple filters can be applied simultaneously
+- Filter state is preserved during session
+- Clear filters option resets all filters
 
-### Mobile Responsive Design
-- **Collapsible navigation menu**
-- **Card-based layout** for job listings
-- **Swipe actions** for quick status updates
-- **Bottom sheet modals** for forms
-- **Touch-friendly buttons** and form elements
+#### Epic 4: Dashboard and Analytics
 
-## Technical Requirements
+**US-008: Application Dashboard**
+- **As a** job seeker
+- **I want to** see an overview of my job search progress
+- **So that** I can understand my job search performance
 
-### Frontend Requirements
-- **Framework**: React.js with TypeScript
-- **State Management**: Redux Toolkit or Zustand
-- **UI Library**: Material-UI or Tailwind CSS
-- **Charts**: Chart.js or D3.js
-- **Form Handling**: React Hook Form with Yup validation
-- **HTTP Client**: Axios
-- **Build Tool**: Vite
-- **Testing**: Jest + React Testing Library
+**Acceptance Criteria:**
+- Dashboard shows total number of applications
+- Status breakdown with counts and percentages
+- Recent applications list
+- Upcoming interviews or follow-ups
+- Application trend over time
 
-### Backend Requirements
-- **Runtime**: Node.js (v18+)
-- **Framework**: Express.js
-- **Database**: PostgreSQL with Prisma ORM
-- **Authentication**: JWT tokens
-- **API**: RESTful API with OpenAPI documentation
-- **Validation**: Joi or Zod
-- **Testing**: Jest + Supertest
-- **Environment**: Docker containers
+### Technical Requirements
 
-### Database Schema
-```sql
-CREATE TABLE users (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  email VARCHAR(255) UNIQUE NOT NULL,
-  password_hash VARCHAR(255) NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+#### Frontend Requirements
+- Responsive web application
+- Modern JavaScript framework (React/Vue/Angular)
+- Mobile-friendly interface
+- Accessible design (WCAG 2.1 AA)
+- Real-time updates
 
-CREATE TABLE jobs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-  company_name VARCHAR(255) NOT NULL,
-  position_title VARCHAR(255) NOT NULL,
-  salary_min INTEGER,
-  salary_max INTEGER,
-  status VARCHAR(50) DEFAULT 'Applied',
-  job_description TEXT,
-  job_url VARCHAR(500),
-  location VARCHAR(255),
-  notes TEXT,
-  application_date DATE DEFAULT CURRENT_DATE,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+#### Backend Requirements
+- RESTful API architecture
+- Database for persistent storage
+- User authentication and authorization
+- Data validation and sanitization
+- Error handling and logging
 
-CREATE TABLE status_history (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  job_id UUID REFERENCES jobs(id) ON DELETE CASCADE,
-  old_status VARCHAR(50),
-  new_status VARCHAR(50) NOT NULL,
-  changed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  notes TEXT
-);
-```
+#### Data Model Requirements
 
-### API Endpoints
+**Job Application Entity:**
+- ID (primary key)
+- Company name (required)
+- Position title (required)
+- Application date (required)
+- Current status (required)
+- Job posting URL (optional)
+- Salary range (optional)
+- Notes (optional)
+- Created timestamp
+- Last updated timestamp
+- User ID (foreign key)
 
-#### Authentication
-- `POST /api/auth/register` - User registration
-- `POST /api/auth/login` - User login
-- `POST /api/auth/logout` - User logout
-- `GET /api/auth/profile` - Get user profile
+**Status History Entity:**
+- ID (primary key)
+- Application ID (foreign key)
+- Previous status
+- New status
+- Change timestamp
+- Notes (optional)
 
-#### Jobs
-- `GET /api/jobs` - List jobs with filters and pagination
-- `POST /api/jobs` - Create new job
-- `GET /api/jobs/:id` - Get job details
-- `PUT /api/jobs/:id` - Update job
-- `DELETE /api/jobs/:id` - Delete job
-- `PATCH /api/jobs/:id/status` - Update job status
-- `GET /api/jobs/export` - Export jobs data
+#### Security Requirements
+- User authentication (login/logout)
+- Session management
+- Data encryption in transit (HTTPS)
+- Input validation and sanitization
+- Protection against common web vulnerabilities
 
-#### Analytics
-- `GET /api/analytics/summary` - Get summary statistics
-- `GET /api/analytics/status-distribution` - Status breakdown
-- `GET /api/analytics/timeline` - Applications over time
-- `GET /api/analytics/salary-stats` - Salary statistics
+#### Performance Requirements
+- Page load time < 3 seconds
+- Search results return < 1 second
+- Support for 1000+ applications per user
+- Database query optimization
+- Efficient pagination for large datasets
 
 ### Non-Functional Requirements
 
-#### Performance
-- Page load time < 2 seconds
-- API response time < 500ms for standard queries
-- Support 100+ concurrent users
-- Efficient database queries with proper indexing
-
-#### Security
-- Input validation and sanitization
-- SQL injection prevention
-- XSS protection
-- CSRF tokens
-- Rate limiting on API endpoints
-- Secure password hashing (bcrypt)
-- HTTPS enforcement
-
-#### Scalability
-- Horizontal scaling capability
-- Database connection pooling
-- Caching strategy (Redis)
-- CDN for static assets
-
 #### Usability
 - Intuitive user interface
-- Responsive design (mobile-first)
-- Accessibility compliance (WCAG 2.1)
-- Loading states and error handling
-- Offline capability (basic)
+- Minimal learning curve
+- Clear navigation and labeling
+- Consistent design patterns
 
 #### Reliability
-- 99.9% uptime target
-- Automated backups
-- Error logging and monitoring
-- Graceful error handling
-- Data validation at multiple layers
+- 99.5% uptime availability
+- Data backup and recovery procedures
+- Error recovery mechanisms
+- Graceful degradation
 
-### Development Standards
-- **Code Style**: ESLint + Prettier
-- **Git Flow**: Feature branches with PR reviews
-- **Documentation**: JSDoc for functions, README for setup
-- **Testing**: Minimum 80% code coverage
-- **CI/CD**: GitHub Actions for testing and deployment
-- **Environment Management**: Development, staging, production
+#### Scalability
+- Support for growing user base
+- Database scalability considerations
+- Performance monitoring
 
-### Deployment Requirements
-- **Containerization**: Docker and Docker Compose
-- **Cloud Platform**: AWS, Google Cloud, or similar
-- **Database**: Managed PostgreSQL service
-- **Monitoring**: Application and infrastructure monitoring
-- **Logging**: Centralized logging system
-- **Backup Strategy**: Daily automated backups with 30-day retention
+#### Maintainability
+- Clean, documented code
+- Modular architecture
+- Version control
+- Testing coverage > 80%
 
-## Success Metrics
-- User engagement: Daily active users
-- Feature adoption: Percentage of users using analytics
-- Performance: Average page load time
-- Quality: Bug reports per release
-- User satisfaction: User feedback scores
+### Success Criteria
+- User can successfully manage their job applications
+- Application provides clear visibility into job search progress
+- Search and filter functionality enables efficient application management
+- System is reliable and performs well under normal usage
+- User interface is intuitive and accessible
 
-## Future Enhancements (Out of Scope)
-- Team collaboration features
-- Advanced reporting and insights
-- Integration with job boards (LinkedIn, Indeed)
-- Mobile app (iOS/Android)
-- AI-powered job recommendations
-- Calendar integration for interviews
-- Email templates for follow-ups
-- Salary negotiation tools
+### Future Enhancements
+- Email integration for application reminders
+- Calendar integration for interview scheduling
+- Resume and cover letter management
+- Application statistics and insights
+- Export functionality (PDF, CSV)
+- Mobile application
+- Integration with job boards
+- Collaboration features for sharing applications
+
+---
+
+**Document Version:** 1.0  
+**Created:** 2024-01-15  
+**Last Updated:** 2024-01-15  
+**Created By:** Mike Chen  
+**Approved By:** [Pending]
