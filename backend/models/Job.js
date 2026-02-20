@@ -9,9 +9,9 @@ const jobSchema = new mongoose.Schema({
   },
   position: {
     type: String,
-    required: [true, 'Position title is required'],
+    required: [true, 'Position is required'],
     trim: true,
-    maxlength: [100, 'Position title cannot exceed 100 characters']
+    maxlength: [100, 'Position cannot exceed 100 characters']
   },
   status: {
     type: String,
@@ -25,25 +25,33 @@ const jobSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
-  description: {
+  salary: {
     type: String,
     trim: true,
-    maxlength: [2000, 'Description cannot exceed 2000 characters']
+    maxlength: [50, 'Salary information cannot exceed 50 characters']
+  },
+  location: {
+    type: String,
+    trim: true,
+    maxlength: [100, 'Location cannot exceed 100 characters']
   },
   notes: {
     type: String,
     trim: true,
     maxlength: [1000, 'Notes cannot exceed 1000 characters']
   },
-  salary: {
+  contactEmail: {
     type: String,
     trim: true,
-    maxlength: [50, 'Salary cannot exceed 50 characters']
-  },
-  location: {
-    type: String,
-    trim: true,
-    maxlength: [100, 'Location cannot exceed 100 characters']
+    lowercase: true,
+    validate: {
+      validator: function(email) {
+        if (!email) return true; // Optional field
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+      },
+      message: 'Please provide a valid email address'
+    },
+    maxlength: [100, 'Contact email cannot exceed 100 characters']
   }
 }, {
   timestamps: true,
@@ -51,35 +59,31 @@ const jobSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Index for faster queries
-jobSchema.index({ company: 1, position: 1 });
-jobSchema.index({ status: 1 });
-jobSchema.index({ applicationDate: -1 });
-
 // Virtual for days since application
 jobSchema.virtual('daysSinceApplication').get(function() {
-  if (!this.applicationDate) return null;
-  const diffTime = Math.abs(new Date() - this.applicationDate);
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  return diffDays;
+  const now = new Date();
+  const diffTime = Math.abs(now - this.applicationDate);
+  return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 });
 
-// Pre-save middleware to validate application date
-jobSchema.pre('save', function(next) {
-  if (this.applicationDate && this.applicationDate > new Date()) {
-    next(new Error('Application date cannot be in the future'));
-  } else {
-    next();
-  }
+// Virtual for formatted application date
+jobSchema.virtual('formattedApplicationDate').get(function() {
+  return this.applicationDate.toLocaleDateString();
 });
 
 // Instance method to update status
 jobSchema.methods.updateStatus = function(newStatus) {
-  const validStatuses = ['Applied', 'Interview', 'Offer', 'Rejected'];
-  if (!validStatuses.includes(newStatus)) {
-    throw new Error('Invalid status');
-  }
   this.status = newStatus;
+  return this.save();
+};
+
+// Instance method to add notes
+jobSchema.methods.addNote = function(note) {
+  if (this.notes) {
+    this.notes += '\n' + note;
+  } else {
+    this.notes = note;
+  }
   return this.save();
 };
 
@@ -88,8 +92,15 @@ jobSchema.statics.findByStatus = function(status) {
   return this.find({ status });
 };
 
+// Static method to find jobs by company
+jobSchema.statics.findByCompany = function(company) {
+  return this.find({ 
+    company: { $regex: new RegExp(company, 'i') } 
+  });
+};
+
 // Static method to get application statistics
-jobSchema.statics.getStats = function() {
+jobSchema.statics.getStatistics = function() {
   return this.aggregate([
     {
       $group: {
@@ -98,11 +109,27 @@ jobSchema.statics.getStats = function() {
       }
     },
     {
-      $sort: { count: -1 }
+      $project: {
+        status: '$_id',
+        count: 1,
+        _id: 0
+      }
     }
   ]);
 };
 
-const Job = mongoose.model('Job', jobSchema);
+// Pre-save middleware to validate application date
+jobSchema.pre('save', function(next) {
+  if (this.applicationDate > new Date()) {
+    next(new Error('Application date cannot be in the future'));
+  } else {
+    next();
+  }
+});
 
-module.exports = Job;
+// Index for better query performance
+jobSchema.index({ company: 1, position: 1 });
+jobSchema.index({ status: 1 });
+jobSchema.index({ applicationDate: -1 });
+
+module.exports = mongoose.model('Job', jobSchema);
