@@ -1,145 +1,159 @@
-import React, { useState } from 'react';
-import './JobForm.css';
+import React, { useState, useCallback, useMemo } from 'react';
+import PropTypes from 'prop-types';
 
-const JobForm = ({ onSubmit, initialData = null }) => {
+const JobForm = ({ onSubmit, initialData = null, isLoading = false }) => {
   const [formData, setFormData] = useState({
     title: initialData?.title || '',
     company: initialData?.company || '',
-    status: initialData?.status || 'Applied',
-    applicationDate: initialData?.applicationDate || new Date().toISOString().split('T')[0],
-    notes: initialData?.notes || ''
+    location: initialData?.location || '',
+    description: initialData?.description || '',
+    requirements: initialData?.requirements || '',
+    salary: initialData?.salary || '',
+    jobType: initialData?.jobType || 'full-time',
+    experienceLevel: initialData?.experienceLevel || 'entry'
   });
 
   const [errors, setErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [touched, setTouched] = useState({});
 
-  const statusOptions = [
-    { value: 'Applied', label: 'Applied' },
-    { value: 'Interview', label: 'Interview' },
-    { value: 'Offer', label: 'Offer' },
-    { value: 'Rejected', label: 'Rejected' }
-  ];
+  // Validation rules
+  const validationRules = useMemo(() => ({
+    title: {
+      required: true,
+      minLength: 3,
+      maxLength: 100,
+      message: 'Job title must be between 3 and 100 characters'
+    },
+    company: {
+      required: true,
+      minLength: 2,
+      maxLength: 50,
+      message: 'Company name must be between 2 and 50 characters'
+    },
+    location: {
+      required: true,
+      minLength: 2,
+      maxLength: 100,
+      message: 'Location must be between 2 and 100 characters'
+    },
+    description: {
+      required: true,
+      minLength: 50,
+      maxLength: 2000,
+      message: 'Description must be between 50 and 2000 characters'
+    },
+    requirements: {
+      required: true,
+      minLength: 20,
+      maxLength: 1000,
+      message: 'Requirements must be between 20 and 1000 characters'
+    },
+    salary: {
+      pattern: /^\$?[\d]+(\s*-\s*\$?[\d]+)?$|^(Competitive|Negotiable)$/i,
+      message: 'Please enter a valid salary (e.g., $50,000, $50k-60k, or Competitive)'
+    }
+  }), []);
 
-  const validateForm = () => {
+  // Validate single field
+  const validateField = useCallback((name, value) => {
+    const rule = validationRules[name];
+    if (!rule) return null;
+
+    if (rule.required && !value.trim()) {
+      return `${name.charAt(0).toUpperCase() + name.slice(1)} is required`;
+    }
+
+    if (rule.minLength && value.length < rule.minLength) {
+      return rule.message;
+    }
+
+    if (rule.maxLength && value.length > rule.maxLength) {
+      return rule.message;
+    }
+
+    if (rule.pattern && value && !rule.pattern.test(value)) {
+      return rule.message;
+    }
+
+    return null;
+  }, [validationRules]);
+
+  // Validate all fields
+  const validateForm = useCallback(() => {
     const newErrors = {};
-
-    // Title validation
-    if (!formData.title.trim()) {
-      newErrors.title = 'Job title is required';
-    } else if (formData.title.trim().length < 2) {
-      newErrors.title = 'Job title must be at least 2 characters';
-    }
-
-    // Company validation
-    if (!formData.company.trim()) {
-      newErrors.company = 'Company name is required';
-    } else if (formData.company.trim().length < 2) {
-      newErrors.company = 'Company name must be at least 2 characters';
-    }
-
-    // Status validation
-    if (!statusOptions.some(option => option.value === formData.status)) {
-      newErrors.status = 'Please select a valid status';
-    }
-
-    // Application date validation
-    if (!formData.applicationDate) {
-      newErrors.applicationDate = 'Application date is required';
-    } else {
-      const selectedDate = new Date(formData.applicationDate);
-      const today = new Date();
-      if (selectedDate > today) {
-        newErrors.applicationDate = 'Application date cannot be in the future';
+    
+    Object.keys(formData).forEach(field => {
+      const error = validateField(field, formData[field]);
+      if (error) {
+        newErrors[field] = error;
       }
-    }
-
-    // Notes validation (optional but with length limit)
-    if (formData.notes && formData.notes.length > 1000) {
-      newErrors.notes = 'Notes must be less than 1000 characters';
-    }
+    });
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
+  }, [formData, validateField]);
 
-  const handleInputChange = (e) => {
+  // Handle input change
+  const handleChange = useCallback((e) => {
     const { name, value } = e.target;
+    
     setFormData(prev => ({
       ...prev,
       [name]: value
     }));
 
-    // Clear error for this field when user starts typing
+    // Clear error when user starts typing
     if (errors[name]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
+  }, [errors]);
+
+  // Handle field blur
+  const handleBlur = useCallback((e) => {
+    const { name, value } = e.target;
+    
+    setTouched(prev => ({
+      ...prev,
+      [name]: true
+    }));
+
+    const error = validateField(name, value);
+    if (error) {
       setErrors(prev => ({
         ...prev,
-        [name]: ''
+        [name]: error
       }));
     }
-  };
+  }, [validateField]);
 
-  const handleSubmit = async (e) => {
+  // Handle form submission
+  const handleSubmit = useCallback((e) => {
     e.preventDefault();
     
-    if (!validateForm()) {
-      return;
+    // Mark all fields as touched
+    setTouched(Object.keys(formData).reduce((acc, key) => ({ ...acc, [key]: true }), {}));
+    
+    if (validateForm()) {
+      onSubmit(formData);
     }
+  }, [formData, validateForm, onSubmit]);
 
-    setIsSubmitting(true);
-
-    try {
-      // Prepare data for submission
-      const submissionData = {
-        ...formData,
-        title: formData.title.trim(),
-        company: formData.company.trim(),
-        notes: formData.notes.trim()
-      };
-
-      await onSubmit(submissionData);
-      
-      // Reset form if not editing (no initialData)
-      if (!initialData) {
-        setFormData({
-          title: '',
-          company: '',
-          status: 'Applied',
-          applicationDate: new Date().toISOString().split('T')[0],
-          notes: ''
-        });
-      }
-    } catch (error) {
-      console.error('Form submission error:', error);
-      setErrors({ submit: 'Failed to submit form. Please try again.' });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      title: '',
-      company: '',
-      status: 'Applied',
-      applicationDate: new Date().toISOString().split('T')[0],
-      notes: ''
+  // Check if form is valid
+  const isFormValid = useMemo(() => {
+    return Object.keys(formData).every(field => {
+      const error = validateField(field, formData[field]);
+      return !error;
     });
-    setErrors({});
-  };
+  }, [formData, validateField]);
 
   return (
     <div className="job-form-container">
-      <form onSubmit={handleSubmit} className="job-form">
-        <h2 className="form-title">
-          {initialData ? 'Edit Job Application' : 'Add New Job Application'}
-        </h2>
-
-        {errors.submit && (
-          <div className="error-message submit-error">
-            {errors.submit}
-          </div>
-        )}
-
+      <form onSubmit={handleSubmit} className="job-form" noValidate>
+        {/* Job Title */}
         <div className="form-group">
           <label htmlFor="title" className="form-label">
             Job Title *
@@ -149,16 +163,21 @@ const JobForm = ({ onSubmit, initialData = null }) => {
             id="title"
             name="title"
             value={formData.title}
-            onChange={handleInputChange}
-            className={`form-input ${errors.title ? 'error' : ''}`}
-            placeholder="e.g., Senior Software Engineer"
-            maxLength={100}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            className={`form-input ${
+              touched.title && errors.title ? 'form-input--error' : ''
+            }`}
+            placeholder="e.g. Senior Software Engineer"
+            disabled={isLoading}
+            required
           />
-          {errors.title && (
-            <span className="error-message">{errors.title}</span>
+          {touched.title && errors.title && (
+            <span className="form-error">{errors.title}</span>
           )}
         </div>
 
+        {/* Company */}
         <div className="form-group">
           <label htmlFor="company" className="form-label">
             Company *
@@ -168,93 +187,184 @@ const JobForm = ({ onSubmit, initialData = null }) => {
             id="company"
             name="company"
             value={formData.company}
-            onChange={handleInputChange}
-            className={`form-input ${errors.company ? 'error' : ''}`}
-            placeholder="e.g., Google, Microsoft, Startup Inc."
-            maxLength={100}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            className={`form-input ${
+              touched.company && errors.company ? 'form-input--error' : ''
+            }`}
+            placeholder="e.g. Tech Corp Inc."
+            disabled={isLoading}
+            required
           />
-          {errors.company && (
-            <span className="error-message">{errors.company}</span>
+          {touched.company && errors.company && (
+            <span className="form-error">{errors.company}</span>
           )}
         </div>
 
+        {/* Location */}
         <div className="form-group">
-          <label htmlFor="status" className="form-label">
-            Status *
-          </label>
-          <select
-            id="status"
-            name="status"
-            value={formData.status}
-            onChange={handleInputChange}
-            className={`form-select ${errors.status ? 'error' : ''}`}
-          >
-            {statusOptions.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-          {errors.status && (
-            <span className="error-message">{errors.status}</span>
-          )}
-        </div>
-
-        <div className="form-group">
-          <label htmlFor="applicationDate" className="form-label">
-            Application Date *
+          <label htmlFor="location" className="form-label">
+            Location *
           </label>
           <input
-            type="date"
-            id="applicationDate"
-            name="applicationDate"
-            value={formData.applicationDate}
-            onChange={handleInputChange}
-            className={`form-input ${errors.applicationDate ? 'error' : ''}`}
-            max={new Date().toISOString().split('T')[0]}
+            type="text"
+            id="location"
+            name="location"
+            value={formData.location}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            className={`form-input ${
+              touched.location && errors.location ? 'form-input--error' : ''
+            }`}
+            placeholder="e.g. San Francisco, CA or Remote"
+            disabled={isLoading}
+            required
           />
-          {errors.applicationDate && (
-            <span className="error-message">{errors.applicationDate}</span>
+          {touched.location && errors.location && (
+            <span className="form-error">{errors.location}</span>
           )}
         </div>
 
+        {/* Job Type and Experience Level Row */}
+        <div className="form-row">
+          <div className="form-group form-group--half">
+            <label htmlFor="jobType" className="form-label">
+              Job Type
+            </label>
+            <select
+              id="jobType"
+              name="jobType"
+              value={formData.jobType}
+              onChange={handleChange}
+              className="form-input form-select"
+              disabled={isLoading}
+            >
+              <option value="full-time">Full Time</option>
+              <option value="part-time">Part Time</option>
+              <option value="contract">Contract</option>
+              <option value="freelance">Freelance</option>
+              <option value="internship">Internship</option>
+            </select>
+          </div>
+
+          <div className="form-group form-group--half">
+            <label htmlFor="experienceLevel" className="form-label">
+              Experience Level
+            </label>
+            <select
+              id="experienceLevel"
+              name="experienceLevel"
+              value={formData.experienceLevel}
+              onChange={handleChange}
+              className="form-input form-select"
+              disabled={isLoading}
+            >
+              <option value="entry">Entry Level</option>
+              <option value="junior">Junior</option>
+              <option value="mid">Mid Level</option>
+              <option value="senior">Senior</option>
+              <option value="lead">Lead</option>
+              <option value="executive">Executive</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Salary */}
         <div className="form-group">
-          <label htmlFor="notes" className="form-label">
-            Notes
+          <label htmlFor="salary" className="form-label">
+            Salary Range
+          </label>
+          <input
+            type="text"
+            id="salary"
+            name="salary"
+            value={formData.salary}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            className={`form-input ${
+              touched.salary && errors.salary ? 'form-input--error' : ''
+            }`}
+            placeholder="e.g. $80,000 - $120,000 or Competitive"
+            disabled={isLoading}
+          />
+          {touched.salary && errors.salary && (
+            <span className="form-error">{errors.salary}</span>
+          )}
+        </div>
+
+        {/* Description */}
+        <div className="form-group">
+          <label htmlFor="description" className="form-label">
+            Job Description *
           </label>
           <textarea
-            id="notes"
-            name="notes"
-            value={formData.notes}
-            onChange={handleInputChange}
-            className={`form-textarea ${errors.notes ? 'error' : ''}`}
-            placeholder="Additional notes about the application, interview details, etc."
-            rows={4}
-            maxLength={1000}
+            id="description"
+            name="description"
+            value={formData.description}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            className={`form-textarea ${
+              touched.description && errors.description ? 'form-input--error' : ''
+            }`}
+            placeholder="Describe the role, responsibilities, and what makes this position unique..."
+            rows={6}
+            disabled={isLoading}
+            required
           />
-          <div className="character-count">
-            {formData.notes.length}/1000
-          </div>
-          {errors.notes && (
-            <span className="error-message">{errors.notes}</span>
+          {touched.description && errors.description && (
+            <span className="form-error">{errors.description}</span>
           )}
+          <div className="character-count">
+            {formData.description.length}/2000
+          </div>
         </div>
 
+        {/* Requirements */}
+        <div className="form-group">
+          <label htmlFor="requirements" className="form-label">
+            Requirements *
+          </label>
+          <textarea
+            id="requirements"
+            name="requirements"
+            value={formData.requirements}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            className={`form-textarea ${
+              touched.requirements && errors.requirements ? 'form-input--error' : ''
+            }`}
+            placeholder="List the required skills, experience, education, and qualifications..."
+            rows={4}
+            disabled={isLoading}
+            required
+          />
+          {touched.requirements && errors.requirements && (
+            <span className="form-error">{errors.requirements}</span>
+          )}
+          <div className="character-count">
+            {formData.requirements.length}/1000
+          </div>
+        </div>
+
+        {/* Submit Button */}
         <div className="form-actions">
           <button
-            type="button"
-            onClick={resetForm}
-            className="btn btn-secondary"
-            disabled={isSubmitting}
-          >
-            Reset
-          </button>
-          <button
             type="submit"
-            className="btn btn-primary"
-            disabled={isSubmitting}
+            className={`btn btn-primary ${
+              isLoading ? 'btn--loading' : ''
+            } ${
+              !isFormValid ? 'btn--disabled' : ''
+            }`}
+            disabled={isLoading || !isFormValid}
           >
-            {isSubmitting ? 'Submitting...' : (initialData ? 'Update' : 'Add Job')}
+            {isLoading ? (
+              <>
+                <span className="loading-spinner"></span>
+                {initialData ? 'Updating...' : 'Creating...'}
+              </>
+            ) : (
+              initialData ? 'Update Job' : 'Create Job'
+            )}
           </button>
         </div>
       </form>
@@ -262,4 +372,19 @@ const JobForm = ({ onSubmit, initialData = null }) => {
   );
 };
 
-export default JobForm;
+JobForm.propTypes = {
+  onSubmit: PropTypes.func.isRequired,
+  initialData: PropTypes.shape({
+    title: PropTypes.string,
+    company: PropTypes.string,
+    location: PropTypes.string,
+    description: PropTypes.string,
+    requirements: PropTypes.string,
+    salary: PropTypes.string,
+    jobType: PropTypes.oneOf(['full-time', 'part-time', 'contract', 'freelance', 'internship']),
+    experienceLevel: PropTypes.oneOf(['entry', 'junior', 'mid', 'senior', 'lead', 'executive'])
+  }),
+  isLoading: PropTypes.bool
+};
+
+export default React.memo(JobForm);
