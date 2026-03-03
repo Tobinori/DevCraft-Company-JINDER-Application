@@ -1,103 +1,229 @@
-const mongoose = require('mongoose');
-require('dotenv').config();
-
 /**
- * MongoDB Database Configuration
- * Establishes connection to MongoDB Atlas or local MongoDB instance
- * Handles connection events and error handling
+ * Database Configuration for JINDER Application
+ * 
+ * This file sets up the MongoDB connection using Mongoose ODM (Object Document Mapper).
+ * Mongoose provides a straight-forward, schema-based solution to model application data
+ * and includes built-in type casting, validation, query building, and business logic hooks.
  */
 
+const mongoose = require('mongoose');
+const chalk = require('chalk'); // For colored console output (optional dependency)
+
+/**
+ * Database Configuration Class
+ * 
+ * This class encapsulates all database-related functionality including:
+ * - Connection establishment
+ * - Event handling
+ * - Error management
+ * - Graceful shutdown
+ */
 class DatabaseConfig {
   constructor() {
-    this.connectionString = this.buildConnectionString();
-    this.options = {
+    // MongoDB connection instance
+    this.connection = null;
+    
+    // Connection options for optimization and reliability
+    this.connectionOptions = {
+      // Use new URL string parser (removes deprecation warnings)
       useNewUrlParser: true,
+      
+      // Use new Server Discovery and Monitoring engine
       useUnifiedTopology: true,
-      maxPoolSize: 10, // Maintain up to 10 socket connections
-      serverSelectionTimeoutMS: 5000, // Keep trying to send operations for 5 seconds
-      socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
-      bufferMaxEntries: 0, // Disable mongoose buffering
-      bufferCommands: false, // Disable mongoose buffering
+      
+      // Maximum number of connections in the connection pool
+      maxPoolSize: 10,
+      
+      // Close connections after 30 seconds of inactivity
+      maxIdleTimeMS: 30000,
+      
+      // How long to wait for a connection to be established
+      serverSelectionTimeoutMS: 5000,
+      
+      // How long a generated ObjectId should be unique for
+      bufferMaxEntries: 0,
+      
+      // Number of times to retry failed operations
+      retryWrites: true,
+      
+      // Read from primary by default
+      readPreference: 'primary'
     };
   }
 
   /**
-   * Build MongoDB connection string based on environment
-   * @returns {string} MongoDB connection URI
+   * Get MongoDB connection string from environment variables
+   * 
+   * Priority order:
+   * 1. MONGODB_URI (for production/deployment platforms like Heroku)
+   * 2. DATABASE_URL (alternative environment variable)
+   * 3. Constructed from individual components
+   * 4. Default local development connection
+   * 
+   * @returns {string} MongoDB connection string
    */
-  buildConnectionString() {
+  getConnectionString() {
+    // Check for full connection string first (most common in production)
+    if (process.env.MONGODB_URI) {
+      return process.env.MONGODB_URI;
+    }
+    
+    if (process.env.DATABASE_URL) {
+      return process.env.DATABASE_URL;
+    }
+    
+    // Construct connection string from individual components
     const {
-      MONGODB_URI,
-      MONGODB_HOST = 'localhost',
-      MONGODB_PORT = '27017',
-      MONGODB_DATABASE = 'jinder_db',
-      MONGODB_USERNAME,
-      MONGODB_PASSWORD
+      DB_HOST = 'localhost',
+      DB_PORT = '27017',
+      DB_NAME = 'jinder_dev',
+      DB_USER,
+      DB_PASSWORD
     } = process.env;
-
-    // Use MONGODB_URI if provided (for MongoDB Atlas or full URI)
-    if (MONGODB_URI) {
-      return MONGODB_URI;
+    
+    // Build connection string based on whether authentication is required
+    if (DB_USER && DB_PASSWORD) {
+      return `mongodb://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}`;
     }
+    
+    // Default local development connection (no authentication)
+    return `mongodb://${DB_HOST}:${DB_PORT}/${DB_NAME}`;
+  }
 
-    // Build connection string for local MongoDB
-    if (MONGODB_USERNAME && MONGODB_PASSWORD) {
-      return `mongodb://${MONGODB_USERNAME}:${MONGODB_PASSWORD}@${MONGODB_HOST}:${MONGODB_PORT}/${MONGODB_DATABASE}`;
-    }
-
-    return `mongodb://${MONGODB_HOST}:${MONGODB_PORT}/${MONGODB_DATABASE}`;
+  /**
+   * Set up connection event listeners
+   * 
+   * Mongoose connection events help monitor the state of the database connection
+   * and provide feedback for debugging and monitoring purposes.
+   */
+  setupConnectionEvents() {
+    const db = mongoose.connection;
+    
+    // Connection successful
+    db.on('connected', () => {
+      console.log(chalk?.green('✅ MongoDB connected successfully'));
+      console.log(`📊 Database: ${db.name}`);
+      console.log(`🌐 Host: ${db.host}:${db.port}`);
+    });
+    
+    // Connection error
+    db.on('error', (error) => {
+      console.error(chalk?.red('❌ MongoDB connection error:'));
+      console.error(error);
+      
+      // In production, you might want to implement retry logic here
+      // or send alerts to monitoring services
+    });
+    
+    // Connection disconnected
+    db.on('disconnected', () => {
+      console.log(chalk?.yellow('⚠️ MongoDB disconnected'));
+    });
+    
+    // Connection reconnected
+    db.on('reconnected', () => {
+      console.log(chalk?.green('🔄 MongoDB reconnected'));
+    });
+    
+    // Connection ready (after initial connection and authentication)
+    db.once('open', () => {
+      console.log(chalk?.blue('🚀 Database connection is ready'));
+    });
+    
+    // Buffer overflow (when operation buffer is full)
+    db.on('fullsetup', () => {
+      console.log(chalk?.cyan('📡 MongoDB replica set connected'));
+    });
   }
 
   /**
    * Connect to MongoDB database
-   * @returns {Promise<void>}
+   * 
+   * This method establishes the connection to MongoDB using Mongoose.
+   * It includes error handling and connection event setup.
+   * 
+   * @returns {Promise<void>} Promise that resolves when connection is established
    */
   async connect() {
     try {
-      console.log('🔄 Connecting to MongoDB...');
-      console.log(`📍 Connection string: ${this.maskConnectionString()}`);
+      console.log('🔌 Attempting to connect to MongoDB...');
       
-      await mongoose.connect(this.connectionString, this.options);
+      // Get connection string
+      const connectionString = this.getConnectionString();
       
-      console.log('✅ MongoDB connected successfully');
-      console.log(`📊 Database: ${mongoose.connection.name}`);
-      console.log(`🌐 Host: ${mongoose.connection.host}:${mongoose.connection.port}`);
+      // Log connection attempt (hide credentials for security)
+      const safeConnectionString = connectionString.replace(
+        /\/\/([^:]+):([^@]+)@/,
+        '//***:***@'
+      );
+      console.log(`🎯 Connection string: ${safeConnectionString}`);
+      
+      // Set up event listeners before connecting
+      this.setupConnectionEvents();
+      
+      // Establish connection
+      this.connection = await mongoose.connect(
+        connectionString,
+        this.connectionOptions
+      );
+      
+      return this.connection;
       
     } catch (error) {
-      console.error('❌ MongoDB connection error:', error.message);
-      console.error('🔍 Connection string:', this.maskConnectionString());
+      console.error(chalk?.red('💥 Failed to connect to MongoDB:'));
+      console.error(error.message);
+      
+      // Provide helpful error messages for common issues
+      if (error.message.includes('ECONNREFUSED')) {
+        console.error('\n🔧 Troubleshooting tips:');
+        console.error('1. Make sure MongoDB is running on your system');
+        console.error('2. Check if the connection string is correct');
+        console.error('3. Verify firewall settings');
+      } else if (error.message.includes('Authentication failed')) {
+        console.error('\n🔐 Authentication issue:');
+        console.error('1. Check your username and password');
+        console.error('2. Verify the database name');
+        console.error('3. Ensure the user has proper permissions');
+      }
+      
+      // Re-throw error to be handled by the caller
       throw error;
     }
   }
 
   /**
    * Disconnect from MongoDB database
-   * @returns {Promise<void>}
+   * 
+   * This method gracefully closes the database connection.
+   * It's important to call this when the application shuts down
+   * to prevent connection leaks.
+   * 
+   * @returns {Promise<void>} Promise that resolves when disconnection is complete
    */
   async disconnect() {
     try {
-      await mongoose.disconnect();
-      console.log('✅ MongoDB disconnected successfully');
+      if (this.connection) {
+        console.log('🔌 Closing database connection...');
+        await mongoose.connection.close();
+        console.log(chalk?.green('✅ Database connection closed successfully'));
+      }
     } catch (error) {
-      console.error('❌ MongoDB disconnection error:', error.message);
+      console.error(chalk?.red('❌ Error closing database connection:'));
+      console.error(error);
       throw error;
     }
   }
 
   /**
-   * Mask sensitive information in connection string for logging
-   * @returns {string} Masked connection string
-   */
-  maskConnectionString() {
-    return this.connectionString.replace(
-      /mongodb:\/\/([^:]+):([^@]+)@/,
-      'mongodb://$1:****@'
-    );
-  }
-
-  /**
    * Get current connection status
-   * @returns {string} Connection status
+   * 
+   * Mongoose connection states:
+   * 0 = disconnected
+   * 1 = connected
+   * 2 = connecting
+   * 3 = disconnecting
+   * 
+   * @returns {string} Current connection status
    */
   getConnectionStatus() {
     const states = {
@@ -106,82 +232,132 @@ class DatabaseConfig {
       2: 'connecting',
       3: 'disconnecting'
     };
+    
     return states[mongoose.connection.readyState] || 'unknown';
   }
 
   /**
-   * Setup connection event listeners
+   * Set up graceful shutdown handlers
+   * 
+   * This ensures the database connection is properly closed when the application
+   * receives termination signals (SIGINT, SIGTERM, etc.)
    */
-  setupEventListeners() {
-    // Connection opened
-    mongoose.connection.on('connected', () => {
-      console.log('🔗 Mongoose connected to MongoDB');
+  setupGracefulShutdown() {
+    // Handle different termination signals
+    const shutdownSignals = ['SIGINT', 'SIGTERM', 'SIGQUIT'];
+    
+    shutdownSignals.forEach((signal) => {
+      process.on(signal, async () => {
+        console.log(`\n🛑 Received ${signal}. Starting graceful shutdown...`);
+        
+        try {
+          await this.disconnect();
+          console.log('👋 Graceful shutdown completed');
+          process.exit(0);
+        } catch (error) {
+          console.error('❌ Error during graceful shutdown:', error);
+          process.exit(1);
+        }
+      });
     });
-
-    // Connection error
-    mongoose.connection.on('error', (error) => {
-      console.error('🚨 Mongoose connection error:', error);
-    });
-
-    // Connection disconnected
-    mongoose.connection.on('disconnected', () => {
-      console.log('📴 Mongoose disconnected from MongoDB');
-    });
-
-    // Process termination - close connection
-    process.on('SIGINT', async () => {
+    
+    // Handle uncaught exceptions
+    process.on('uncaughtException', async (error) => {
+      console.error('💥 Uncaught Exception:', error);
       try {
         await this.disconnect();
-        console.log('👋 MongoDB connection closed through app termination');
-        process.exit(0);
-      } catch (error) {
-        console.error('❌ Error closing MongoDB connection:', error);
-        process.exit(1);
+      } catch (disconnectError) {
+        console.error('❌ Error disconnecting:', disconnectError);
       }
+      process.exit(1);
     });
-  }
-
-  /**
-   * Test database connection
-   * @returns {Promise<boolean>} Connection test result
-   */
-  async testConnection() {
-    try {
-      await mongoose.connection.db.admin().ping();
-      console.log('🏓 Database ping successful');
-      return true;
-    } catch (error) {
-      console.error('❌ Database ping failed:', error.message);
-      return false;
-    }
+    
+    // Handle unhandled promise rejections
+    process.on('unhandledRejection', async (reason, promise) => {
+      console.error('🚫 Unhandled Rejection at:', promise, 'reason:', reason);
+      try {
+        await this.disconnect();
+      } catch (disconnectError) {
+        console.error('❌ Error disconnecting:', disconnectError);
+      }
+      process.exit(1);
+    });
   }
 }
 
-// Create singleton instance
+// Create and export a singleton instance
 const databaseConfig = new DatabaseConfig();
 
-// Setup event listeners
-databaseConfig.setupEventListeners();
-
 /**
- * Initialize database connection
- * @returns {Promise<void>}
+ * Initialize database connection with graceful shutdown
+ * 
+ * This is the main function to call when starting your application.
+ * It connects to the database and sets up graceful shutdown handlers.
+ * 
+ * @returns {Promise<mongoose.Connection>} The established database connection
  */
-const connectDB = async () => {
-  await databaseConfig.connect();
+const initializeDatabase = async () => {
+  try {
+    // Set up graceful shutdown before connecting
+    databaseConfig.setupGracefulShutdown();
+    
+    // Connect to database
+    const connection = await databaseConfig.connect();
+    
+    // Optional: Set global Mongoose options
+    mongoose.set('strictQuery', true); // Prepare for Mongoose 7
+    
+    return connection;
+    
+  } catch (error) {
+    console.error('🚨 Database initialization failed:', error.message);
+    process.exit(1);
+  }
 };
 
-/**
- * Close database connection
- * @returns {Promise<void>}
- */
-const disconnectDB = async () => {
-  await databaseConfig.disconnect();
-};
-
+// Export both the class instance and the initialization function
 module.exports = {
-  connectDB,
-  disconnectDB,
   databaseConfig,
+  initializeDatabase,
+  
+  // Convenience exports for direct access
+  connect: () => databaseConfig.connect(),
+  disconnect: () => databaseConfig.disconnect(),
+  getStatus: () => databaseConfig.getConnectionStatus(),
+  
+  // Export mongoose for model definitions
   mongoose
 };
+
+/**
+ * Usage Examples:
+ * 
+ * // In your main app.js or server.js:
+ * const { initializeDatabase } = require('./config/database');
+ * 
+ * async function startServer() {
+ *   try {
+ *     // Initialize database connection
+ *     await initializeDatabase();
+ *     
+ *     // Start your Express server after database is connected
+ *     app.listen(PORT, () => {
+ *       console.log(`Server running on port ${PORT}`);
+ *     });
+ *   } catch (error) {
+ *     console.error('Failed to start server:', error);
+ *     process.exit(1);
+ *   }
+ * }
+ * 
+ * startServer();
+ * 
+ * // For manual connection management:
+ * const { databaseConfig } = require('./config/database');
+ * 
+ * async function customConnection() {
+ *   await databaseConfig.connect();
+ *   console.log('Status:', databaseConfig.getConnectionStatus());
+ *   await databaseConfig.disconnect();
+ * }
+ */
