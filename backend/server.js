@@ -1,169 +1,153 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
+const compression = require('compression');
 const morgan = require('morgan');
-const path = require('path');
+const dotenv = require('dotenv');
+
+// Load environment variables
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
+// Security middleware
 app.use(helmet());
-app.use(cors());
-app.use(morgan('combined'));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
-// In-memory storage for demo (replace with database in production)
-let jobs = [
-  {
-    id: 1,
-    company: 'TechCorp',
-    position: 'Frontend Developer',
-    status: 'applied',
-    appliedDate: '2024-01-15',
-    notes: 'Seems like a great fit for React skills',
-    salary: '$75,000',
-    location: 'San Francisco, CA'
-  },
-  {
-    id: 2,
-    company: 'StartupXYZ',
-    position: 'Full Stack Engineer',
-    status: 'interview',
-    appliedDate: '2024-01-10',
-    notes: 'Technical interview scheduled for next week',
-    salary: '$85,000',
-    location: 'Remote'
-  },
-  {
-    id: 3,
-    company: 'BigTech Inc',
-    position: 'Software Engineer',
-    status: 'rejected',
-    appliedDate: '2024-01-05',
-    notes: 'Not a good cultural fit according to feedback',
-    salary: '$95,000',
-    location: 'New York, NY'
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: {
+    error: 'Too many requests from this IP, please try again later.'
   }
-];
-
-let nextId = 4;
-
-// Routes
-
-// Get all jobs
-app.get('/api/jobs', (req, res) => {
-  const { status, search } = req.query;
-  let filteredJobs = jobs;
-  
-  if (status && status !== 'all') {
-    filteredJobs = filteredJobs.filter(job => job.status === status);
-  }
-  
-  if (search) {
-    filteredJobs = filteredJobs.filter(job => 
-      job.company.toLowerCase().includes(search.toLowerCase()) ||
-      job.position.toLowerCase().includes(search.toLowerCase())
-    );
-  }
-  
-  res.json(filteredJobs);
 });
+app.use(limiter);
 
-// Get single job
-app.get('/api/jobs/:id', (req, res) => {
-  const job = jobs.find(j => j.id === parseInt(req.params.id));
-  if (!job) {
-    return res.status(404).json({ error: 'Job not found' });
-  }
-  res.json(job);
-});
+// CORS configuration
+const corsOptions = {
+  origin: process.env.NODE_ENV === 'production' 
+    ? process.env.FRONTEND_URL 
+    : 'http://localhost:3000',
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
 
-// Create new job
-app.post('/api/jobs', (req, res) => {
-  const { company, position, status, appliedDate, notes, salary, location } = req.body;
-  
-  if (!company || !position) {
-    return res.status(400).json({ error: 'Company and position are required' });
-  }
-  
-  const newJob = {
-    id: nextId++,
-    company,
-    position,
-    status: status || 'applied',
-    appliedDate: appliedDate || new Date().toISOString().split('T')[0],
-    notes: notes || '',
-    salary: salary || '',
-    location: location || ''
-  };
-  
-  jobs.push(newJob);
-  res.status(201).json(newJob);
-});
+// Compression middleware
+app.use(compression());
 
-// Update job
-app.put('/api/jobs/:id', (req, res) => {
-  const jobIndex = jobs.findIndex(j => j.id === parseInt(req.params.id));
-  if (jobIndex === -1) {
-    return res.status(404).json({ error: 'Job not found' });
-  }
-  
-  jobs[jobIndex] = { ...jobs[jobIndex], ...req.body };
-  res.json(jobs[jobIndex]);
-});
-
-// Delete job
-app.delete('/api/jobs/:id', (req, res) => {
-  const jobIndex = jobs.findIndex(j => j.id === parseInt(req.params.id));
-  if (jobIndex === -1) {
-    return res.status(404).json({ error: 'Job not found' });
-  }
-  
-  jobs.splice(jobIndex, 1);
-  res.status(204).send();
-});
-
-// Get job statistics
-app.get('/api/stats', (req, res) => {
-  const stats = {
-    total: jobs.length,
-    applied: jobs.filter(j => j.status === 'applied').length,
-    interview: jobs.filter(j => j.status === 'interview').length,
-    offer: jobs.filter(j => j.status === 'offer').length,
-    rejected: jobs.filter(j => j.status === 'rejected').length
-  };
-  res.json(stats);
-});
-
-// Serve static files from React app in production
+// Logging middleware
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../frontend/build')));
-  
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, '../frontend/build', 'index.html'));
-  });
+  app.use(morgan('combined'));
+} else {
+  app.use(morgan('dev'));
 }
+
+// Body parsing middleware
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
+  res.status(200).json({
+    status: 'OK',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: 'Something went wrong!' });
+// API routes
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/profiles', require('./routes/profiles'));
+app.use('/api/matches', require('./routes/matches'));
+app.use('/api/messages', require('./routes/messages'));
+app.use('/api/upload', require('./routes/upload'));
+
+// Root endpoint
+app.get('/', (req, res) => {
+  res.json({
+    message: 'JINDER API Server',
+    version: '1.0.0',
+    status: 'Running'
+  });
 });
 
 // 404 handler
-app.use((req, res) => {
-  res.status(404).json({ error: 'Route not found' });
+app.use('*', (req, res) => {
+  res.status(404).json({
+    error: 'Route not found',
+    message: `The requested endpoint ${req.originalUrl} does not exist`
+  });
 });
 
+// Global error handler
+app.use((error, req, res, next) => {
+  console.error('Server Error:', error);
+  
+  // Mongoose validation error
+  if (error.name === 'ValidationError') {
+    const errors = Object.values(error.errors).map(err => err.message);
+    return res.status(400).json({
+      error: 'Validation Error',
+      message: errors.join(', ')
+    });
+  }
+  
+  // JWT error
+  if (error.name === 'JsonWebTokenError') {
+    return res.status(401).json({
+      error: 'Authentication Error',
+      message: 'Invalid token'
+    });
+  }
+  
+  // Multer error (file upload)
+  if (error.code === 'LIMIT_FILE_SIZE') {
+    return res.status(400).json({
+      error: 'File Too Large',
+      message: 'File size exceeds the maximum limit'
+    });
+  }
+  
+  // Default server error
+  res.status(error.status || 500).json({
+    error: 'Internal Server Error',
+    message: process.env.NODE_ENV === 'production' 
+      ? 'Something went wrong' 
+      : error.message
+  });
+});
+
+// Graceful shutdown handler
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received. Shutting down gracefully...');
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('SIGINT received. Shutting down gracefully...');
+  process.exit(0);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled Promise Rejection:', err);
+  process.exit(1);
+});
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  process.exit(1);
+});
+
+// Start server
 app.listen(PORT, () => {
   console.log(`🚀 JINDER Server running on port ${PORT}`);
-  console.log(`📊 API available at http://localhost:${PORT}/api`);
-  console.log(`💼 Sample jobs loaded: ${jobs.length}`);
+  console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`🌐 CORS Origin: ${corsOptions.origin}`);
 });
+
+module.exports = app;
