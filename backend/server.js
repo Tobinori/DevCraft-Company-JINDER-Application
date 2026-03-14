@@ -1,92 +1,133 @@
+// JINDER Backend Server Setup
+// This file sets up the main Express server for our dating app
+
+// Import required dependencies
 const express = require('express');
 const cors = require('cors');
+const bodyParser = require('body-parser');
 
+// Create Express application instance
 const app = express();
+
+// Define server port - using 3001 for development
 const PORT = process.env.PORT || 3001;
 
-// Middleware
+// ===== MIDDLEWARE SETUP =====
+
+// 1. CORS (Cross-Origin Resource Sharing) Configuration
+// This allows our frontend (running on different port) to communicate with backend
 app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001'],
-  credentials: true
+  origin: ['http://localhost:3000', 'http://localhost:3001'], // Allow requests from these origins
+  credentials: true, // Allow cookies and credentials
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allowed HTTP methods
+  allowedHeaders: ['Content-Type', 'Authorization'] // Allowed headers
 }));
 
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// 2. Body Parser Middleware
+// These middleware functions parse incoming request bodies
 
-// Logging middleware
+// Parse JSON payloads (for API requests)
+app.use(bodyParser.json({
+  limit: '10mb' // Limit JSON payload size (important for image uploads)
+}));
+
+// Parse URL-encoded data (for form submissions)
+app.use(bodyParser.urlencoded({
+  extended: true, // Use extended parsing for nested objects
+  limit: '10mb' // Limit payload size
+}));
+
+// 3. Request Logging Middleware (helpful for debugging)
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
   next();
 });
 
-// Routes
-app.get('/health', (req, res) => {
-  res.json({ status: 'OK', timestamp: new Date().toISOString() });
-});
+// ===== ROUTES SETUP =====
 
-// Placeholder route for jobs API
-app.get('/api/jobs', (req, res) => {
-  res.json({ 
-    message: 'Jobs API endpoint - coming soon!',
-    jobs: []
+// Health check endpoint - useful for testing if server is running
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    status: 'OK',
+    message: 'JINDER server is running successfully!',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
   });
 });
 
-app.post('/api/jobs', (req, res) => {
-  res.json({ 
-    message: 'Job creation endpoint - coming soon!',
-    body: req.body
+// Welcome endpoint for testing
+app.get('/api', (req, res) => {
+  res.json({
+    message: 'Welcome to JINDER API!',
+    version: '1.0.0',
+    endpoints: {
+      health: '/api/health',
+      users: '/api/users (coming soon)',
+      matches: '/api/matches (coming soon)'
+    }
   });
 });
 
-// 404 handler
-app.use('*', (req, res) => {
-  res.status(404).json({ 
-    error: 'Route not found',
-    path: req.originalUrl
-  });
+// TODO: Add more route handlers here as we develop features
+// Example: app.use('/api/users', userRoutes);
+// Example: app.use('/api/matches', matchRoutes);
+
+// ===== ERROR HANDLING MIDDLEWARE =====
+
+// 404 Handler - This runs when no routes match the request
+app.use((req, res, next) => {
+  const error = new Error(`Route not found: ${req.method} ${req.originalUrl}`);
+  error.status = 404;
+  next(error); // Pass error to error handler
 });
 
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Error occurred:', err.stack);
+// Global Error Handler - This catches all errors in the application
+app.use((error, req, res, next) => {
+  console.error('Error occurred:', {
+    message: error.message,
+    stack: error.stack,
+    url: req.originalUrl,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+
+  // Don't expose error details in production
+  const isDevelopment = process.env.NODE_ENV !== 'production';
   
-  // Default to 500 server error
-  let status = err.status || err.statusCode || 500;
-  let message = err.message || 'Internal Server Error';
-  
-  // Don't leak error details in production
-  if (process.env.NODE_ENV === 'production' && status === 500) {
-    message = 'Something went wrong!';
-  }
-  
-  res.status(status).json({
-    error: message,
-    ...(process.env.NODE_ENV !== 'production' && { stack: err.stack })
+  res.status(error.status || 500).json({
+    success: false,
+    message: error.message || 'Internal Server Error',
+    ...(isDevelopment && { 
+      stack: error.stack,
+      details: error 
+    })
   });
 });
 
-// Start server
+// ===== SERVER STARTUP =====
+
+// Start the server and listen on specified port
 app.listen(PORT, () => {
-  console.log('🚀 JINDER Backend Server Started!');
-  console.log(`📡 Server running on port ${PORT}`);
+  console.log('\n🚀 JINDER Server Started Successfully!');
+  console.log(`📍 Server running on http://localhost:${PORT}`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`⏰ Started at: ${new Date().toISOString()}`);
-  console.log('📋 Available endpoints:');
-  console.log('  - GET  /health');
-  console.log('  - GET  /api/jobs');
-  console.log('  - POST /api/jobs');
+  console.log('\n📋 Available endpoints:');
+  console.log(`   GET  http://localhost:${PORT}/api`);
+  console.log(`   GET  http://localhost:${PORT}/api/health`);
+  console.log('\n💡 Tip: Test the server by visiting the health endpoint!\n');
 });
 
-// Graceful shutdown
+// Graceful shutdown handling
 process.on('SIGTERM', () => {
-  console.log('\n🛑 SIGTERM received, shutting down gracefully...');
+  console.log('\n🛑 SIGTERM received. Shutting down gracefully...');
   process.exit(0);
 });
 
 process.on('SIGINT', () => {
-  console.log('\n🛑 SIGINT received, shutting down gracefully...');
+  console.log('\n🛑 SIGINT received. Shutting down gracefully...');
   process.exit(0);
 });
 
+// Export app for testing purposes
 module.exports = app;
