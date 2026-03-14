@@ -4,38 +4,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Production builds
-frontend/build/
-dist/
-
-# Environment variables
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# IDE and editor files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Desktop.ini
-Thumbs.db
-
-# Logs
-logs/
-*.log
-
 # Runtime data
 pids
 *.pid
@@ -44,47 +12,42 @@ pids
 
 # Coverage directory used by tools like istanbul
 coverage/
+*.lcov
 
-# MongoDB data
-data/
+# nyc test coverage
+.nyc_output
 
-# Temporary files
-tmp/
-temp/
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
 
-# Package lock files (keep package-lock.json for consistency)
-# yarn.lock
+# Build outputs
+dist/
+build/
 
-# ESLint cache
-.eslintcache
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
 
-# Optional REPL history
-.node_repl_history
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 
-# Output of 'npm pack'
-*.tgz
+# Logs
+logs
+*.log
 
-# Yarn Integrity file
-.yarn-integrity
-
-# dotenv environment variables file
-.env.test
-
-# parcel-bundler cache (https://parceljs.org/)
-.cache
-.parcel-cache
-
-# next.js build output
-.next
-
-# nuxt.js build output
-.nuxt
-
-# vuepress build output
-.vuepress/dist
-
-# Serverless directories
-.serverless
-
-# FuseBox cache
-.fusebox/
+# Database
+*.sqlite
+*.db
