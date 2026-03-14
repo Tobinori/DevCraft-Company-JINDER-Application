@@ -1,102 +1,99 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import PropTypes from 'prop-types';
+import React, { useState, useEffect } from 'react';
+import './JobForm.css';
 
-const JobForm = ({ onSubmit, initialData = null, isLoading = false }) => {
+const JobForm = ({ job = null, onSubmit, onCancel }) => {
   const [formData, setFormData] = useState({
-    title: initialData?.title || '',
-    company: initialData?.company || '',
-    location: initialData?.location || '',
-    description: initialData?.description || '',
-    requirements: initialData?.requirements || '',
-    salary: initialData?.salary || '',
-    jobType: initialData?.jobType || 'full-time',
-    experienceLevel: initialData?.experienceLevel || 'entry'
+    companyName: '',
+    positionTitle: '',
+    applicationDate: '',
+    status: 'Applied',
+    salaryMin: '',
+    salaryMax: '',
+    notes: ''
   });
 
   const [errors, setErrors] = useState({});
-  const [touched, setTouched] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Validation rules
-  const validationRules = useMemo(() => ({
-    title: {
-      required: true,
-      minLength: 3,
-      maxLength: 100,
-      message: 'Job title must be between 3 and 100 characters'
-    },
-    company: {
-      required: true,
-      minLength: 2,
-      maxLength: 50,
-      message: 'Company name must be between 2 and 50 characters'
-    },
-    location: {
-      required: true,
-      minLength: 2,
-      maxLength: 100,
-      message: 'Location must be between 2 and 100 characters'
-    },
-    description: {
-      required: true,
-      minLength: 50,
-      maxLength: 2000,
-      message: 'Description must be between 50 and 2000 characters'
-    },
-    requirements: {
-      required: true,
-      minLength: 20,
-      maxLength: 1000,
-      message: 'Requirements must be between 20 and 1000 characters'
-    },
-    salary: {
-      pattern: /^\$?[\d]+(\s*-\s*\$?[\d]+)?$|^(Competitive|Negotiable)$/i,
-      message: 'Please enter a valid salary (e.g., $50,000, $50k-60k, or Competitive)'
+  const statusOptions = [
+    { value: 'Applied', label: 'Applied' },
+    { value: 'Interview', label: 'Interview' },
+    { value: 'Offer', label: 'Offer' },
+    { value: 'Rejected', label: 'Rejected' }
+  ];
+
+  // Initialize form with existing job data if editing
+  useEffect(() => {
+    if (job) {
+      setFormData({
+        companyName: job.companyName || '',
+        positionTitle: job.positionTitle || '',
+        applicationDate: job.applicationDate || '',
+        status: job.status || 'Applied',
+        salaryMin: job.salaryMin || '',
+        salaryMax: job.salaryMax || '',
+        notes: job.notes || ''
+      });
     }
-  }), []);
+  }, [job]);
 
-  // Validate single field
-  const validateField = useCallback((name, value) => {
-    const rule = validationRules[name];
-    if (!rule) return null;
-
-    if (rule.required && !value.trim()) {
-      return `${name.charAt(0).toUpperCase() + name.slice(1)} is required`;
-    }
-
-    if (rule.minLength && value.length < rule.minLength) {
-      return rule.message;
-    }
-
-    if (rule.maxLength && value.length > rule.maxLength) {
-      return rule.message;
-    }
-
-    if (rule.pattern && value && !rule.pattern.test(value)) {
-      return rule.message;
-    }
-
-    return null;
-  }, [validationRules]);
-
-  // Validate all fields
-  const validateForm = useCallback(() => {
+  const validateForm = () => {
     const newErrors = {};
-    
-    Object.keys(formData).forEach(field => {
-      const error = validateField(field, formData[field]);
-      if (error) {
-        newErrors[field] = error;
+
+    // Required field validations
+    if (!formData.companyName.trim()) {
+      newErrors.companyName = 'Company name is required';
+    }
+
+    if (!formData.positionTitle.trim()) {
+      newErrors.positionTitle = 'Position title is required';
+    }
+
+    if (!formData.applicationDate) {
+      newErrors.applicationDate = 'Application date is required';
+    } else {
+      const selectedDate = new Date(formData.applicationDate);
+      const today = new Date();
+      today.setHours(23, 59, 59, 999);
+      
+      if (selectedDate > today) {
+        newErrors.applicationDate = 'Application date cannot be in the future';
       }
-    });
+    }
+
+    // Salary validation
+    if (formData.salaryMin && formData.salaryMax) {
+      const minSalary = parseFloat(formData.salaryMin);
+      const maxSalary = parseFloat(formData.salaryMax);
+      
+      if (isNaN(minSalary) || minSalary < 0) {
+        newErrors.salaryMin = 'Please enter a valid minimum salary';
+      }
+      
+      if (isNaN(maxSalary) || maxSalary < 0) {
+        newErrors.salaryMax = 'Please enter a valid maximum salary';
+      }
+      
+      if (!isNaN(minSalary) && !isNaN(maxSalary) && minSalary > maxSalary) {
+        newErrors.salaryMax = 'Maximum salary must be greater than minimum salary';
+      }
+    }
+
+    // Individual salary field validation
+    if (formData.salaryMin && (isNaN(parseFloat(formData.salaryMin)) || parseFloat(formData.salaryMin) < 0)) {
+      newErrors.salaryMin = 'Please enter a valid minimum salary';
+    }
+
+    if (formData.salaryMax && (isNaN(parseFloat(formData.salaryMax)) || parseFloat(formData.salaryMax) < 0)) {
+      newErrors.salaryMax = 'Please enter a valid maximum salary';
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  }, [formData, validateField]);
+  };
 
-  // Handle input change
-  const handleChange = useCallback((e) => {
+  const handleInputChange = (e) => {
     const { name, value } = e.target;
-    
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -104,266 +101,243 @@ const JobForm = ({ onSubmit, initialData = null, isLoading = false }) => {
 
     // Clear error when user starts typing
     if (errors[name]) {
-      setErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[name];
-        return newErrors;
-      });
-    }
-  }, [errors]);
-
-  // Handle field blur
-  const handleBlur = useCallback((e) => {
-    const { name, value } = e.target;
-    
-    setTouched(prev => ({
-      ...prev,
-      [name]: true
-    }));
-
-    const error = validateField(name, value);
-    if (error) {
       setErrors(prev => ({
         ...prev,
-        [name]: error
+        [name]: ''
       }));
     }
-  }, [validateField]);
+  };
 
-  // Handle form submission
-  const handleSubmit = useCallback((e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Mark all fields as touched
-    setTouched(Object.keys(formData).reduce((acc, key) => ({ ...acc, [key]: true }), {}));
-    
-    if (validateForm()) {
-      onSubmit(formData);
+    if (!validateForm()) {
+      return;
     }
-  }, [formData, validateForm, onSubmit]);
 
-  // Check if form is valid
-  const isFormValid = useMemo(() => {
-    return Object.keys(formData).every(field => {
-      const error = validateField(field, formData[field]);
-      return !error;
-    });
-  }, [formData, validateField]);
+    setIsSubmitting(true);
+    
+    try {
+      const jobData = {
+        ...formData,
+        salaryMin: formData.salaryMin ? parseFloat(formData.salaryMin) : null,
+        salaryMax: formData.salaryMax ? parseFloat(formData.salaryMax) : null,
+        id: job?.id // Include ID if editing existing job
+      };
+      
+      await onSubmit(jobData);
+    } catch (error) {
+      console.error('Error submitting job form:', error);
+      setErrors({ submit: 'Failed to save job application. Please try again.' });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCancel = () => {
+    if (onCancel) {
+      onCancel();
+    }
+  };
+
+  const formatSalary = (value) => {
+    if (!value) return '';
+    const numericValue = value.replace(/[^0-9]/g, '');
+    return numericValue.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  };
+
+  const handleSalaryChange = (e) => {
+    const { name, value } = e.target;
+    const formattedValue = formatSalary(value);
+    setFormData(prev => ({
+      ...prev,
+      [name]: formattedValue
+    }));
+
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
+  };
 
   return (
     <div className="job-form-container">
-      <form onSubmit={handleSubmit} className="job-form" noValidate>
-        {/* Job Title */}
-        <div className="form-group">
-          <label htmlFor="title" className="form-label">
-            Job Title *
-          </label>
-          <input
-            type="text"
-            id="title"
-            name="title"
-            value={formData.title}
-            onChange={handleChange}
-            onBlur={handleBlur}
-            className={`form-input ${
-              touched.title && errors.title ? 'form-input--error' : ''
-            }`}
-            placeholder="e.g. Senior Software Engineer"
-            disabled={isLoading}
-            required
-          />
-          {touched.title && errors.title && (
-            <span className="form-error">{errors.title}</span>
-          )}
-        </div>
-
-        {/* Company */}
-        <div className="form-group">
-          <label htmlFor="company" className="form-label">
-            Company *
-          </label>
-          <input
-            type="text"
-            id="company"
-            name="company"
-            value={formData.company}
-            onChange={handleChange}
-            onBlur={handleBlur}
-            className={`form-input ${
-              touched.company && errors.company ? 'form-input--error' : ''
-            }`}
-            placeholder="e.g. Tech Corp Inc."
-            disabled={isLoading}
-            required
-          />
-          {touched.company && errors.company && (
-            <span className="form-error">{errors.company}</span>
-          )}
-        </div>
-
-        {/* Location */}
-        <div className="form-group">
-          <label htmlFor="location" className="form-label">
-            Location *
-          </label>
-          <input
-            type="text"
-            id="location"
-            name="location"
-            value={formData.location}
-            onChange={handleChange}
-            onBlur={handleBlur}
-            className={`form-input ${
-              touched.location && errors.location ? 'form-input--error' : ''
-            }`}
-            placeholder="e.g. San Francisco, CA or Remote"
-            disabled={isLoading}
-            required
-          />
-          {touched.location && errors.location && (
-            <span className="form-error">{errors.location}</span>
-          )}
-        </div>
-
-        {/* Job Type and Experience Level Row */}
+      <div className="job-form-header">
+        <h2>{job ? 'Edit Job Application' : 'Add New Job Application'}</h2>
+      </div>
+      
+      <form onSubmit={handleSubmit} className="job-form">
+        {errors.submit && (
+          <div className="error-message submit-error">
+            {errors.submit}
+          </div>
+        )}
+        
         <div className="form-row">
-          <div className="form-group form-group--half">
-            <label htmlFor="jobType" className="form-label">
-              Job Type
+          <div className="form-group">
+            <label htmlFor="companyName">
+              Company Name <span className="required">*</span>
+            </label>
+            <input
+              type="text"
+              id="companyName"
+              name="companyName"
+              value={formData.companyName}
+              onChange={handleInputChange}
+              className={errors.companyName ? 'error' : ''}
+              placeholder="Enter company name"
+              maxLength={100}
+            />
+            {errors.companyName && (
+              <span className="error-message">{errors.companyName}</span>
+            )}
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="positionTitle">
+              Position Title <span className="required">*</span>
+            </label>
+            <input
+              type="text"
+              id="positionTitle"
+              name="positionTitle"
+              value={formData.positionTitle}
+              onChange={handleInputChange}
+              className={errors.positionTitle ? 'error' : ''}
+              placeholder="Enter position title"
+              maxLength={100}
+            />
+            {errors.positionTitle && (
+              <span className="error-message">{errors.positionTitle}</span>
+            )}
+          </div>
+        </div>
+        
+        <div className="form-row">
+          <div className="form-group">
+            <label htmlFor="applicationDate">
+              Application Date <span className="required">*</span>
+            </label>
+            <input
+              type="date"
+              id="applicationDate"
+              name="applicationDate"
+              value={formData.applicationDate}
+              onChange={handleInputChange}
+              className={errors.applicationDate ? 'error' : ''}
+              max={new Date().toISOString().split('T')[0]}
+            />
+            {errors.applicationDate && (
+              <span className="error-message">{errors.applicationDate}</span>
+            )}
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="status">
+              Status <span className="required">*</span>
             </label>
             <select
-              id="jobType"
-              name="jobType"
-              value={formData.jobType}
-              onChange={handleChange}
-              className="form-input form-select"
-              disabled={isLoading}
+              id="status"
+              name="status"
+              value={formData.status}
+              onChange={handleInputChange}
+              className={errors.status ? 'error' : ''}
             >
-              <option value="full-time">Full Time</option>
-              <option value="part-time">Part Time</option>
-              <option value="contract">Contract</option>
-              <option value="freelance">Freelance</option>
-              <option value="internship">Internship</option>
+              {statusOptions.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
             </select>
+            {errors.status && (
+              <span className="error-message">{errors.status}</span>
+            )}
           </div>
-
-          <div className="form-group form-group--half">
-            <label htmlFor="experienceLevel" className="form-label">
-              Experience Level
+        </div>
+        
+        <div className="form-row">
+          <div className="form-group">
+            <label htmlFor="salaryMin">
+              Minimum Salary ($)
             </label>
-            <select
-              id="experienceLevel"
-              name="experienceLevel"
-              value={formData.experienceLevel}
-              onChange={handleChange}
-              className="form-input form-select"
-              disabled={isLoading}
-            >
-              <option value="entry">Entry Level</option>
-              <option value="junior">Junior</option>
-              <option value="mid">Mid Level</option>
-              <option value="senior">Senior</option>
-              <option value="lead">Lead</option>
-              <option value="executive">Executive</option>
-            </select>
+            <input
+              type="text"
+              id="salaryMin"
+              name="salaryMin"
+              value={formData.salaryMin}
+              onChange={handleSalaryChange}
+              className={errors.salaryMin ? 'error' : ''}
+              placeholder="e.g., 60,000"
+            />
+            {errors.salaryMin && (
+              <span className="error-message">{errors.salaryMin}</span>
+            )}
+          </div>
+          
+          <div className="form-group">
+            <label htmlFor="salaryMax">
+              Maximum Salary ($)
+            </label>
+            <input
+              type="text"
+              id="salaryMax"
+              name="salaryMax"
+              value={formData.salaryMax}
+              onChange={handleSalaryChange}
+              className={errors.salaryMax ? 'error' : ''}
+              placeholder="e.g., 80,000"
+            />
+            {errors.salaryMax && (
+              <span className="error-message">{errors.salaryMax}</span>
+            )}
           </div>
         </div>
-
-        {/* Salary */}
-        <div className="form-group">
-          <label htmlFor="salary" className="form-label">
-            Salary Range
-          </label>
-          <input
-            type="text"
-            id="salary"
-            name="salary"
-            value={formData.salary}
-            onChange={handleChange}
-            onBlur={handleBlur}
-            className={`form-input ${
-              touched.salary && errors.salary ? 'form-input--error' : ''
-            }`}
-            placeholder="e.g. $80,000 - $120,000 or Competitive"
-            disabled={isLoading}
-          />
-          {touched.salary && errors.salary && (
-            <span className="form-error">{errors.salary}</span>
-          )}
-        </div>
-
-        {/* Description */}
-        <div className="form-group">
-          <label htmlFor="description" className="form-label">
-            Job Description *
+        
+        <div className="form-group full-width">
+          <label htmlFor="notes">
+            Notes
           </label>
           <textarea
-            id="description"
-            name="description"
-            value={formData.description}
-            onChange={handleChange}
-            onBlur={handleBlur}
-            className={`form-textarea ${
-              touched.description && errors.description ? 'form-input--error' : ''
-            }`}
-            placeholder="Describe the role, responsibilities, and what makes this position unique..."
-            rows={6}
-            disabled={isLoading}
-            required
-          />
-          {touched.description && errors.description && (
-            <span className="form-error">{errors.description}</span>
-          )}
-          <div className="character-count">
-            {formData.description.length}/2000
-          </div>
-        </div>
-
-        {/* Requirements */}
-        <div className="form-group">
-          <label htmlFor="requirements" className="form-label">
-            Requirements *
-          </label>
-          <textarea
-            id="requirements"
-            name="requirements"
-            value={formData.requirements}
-            onChange={handleChange}
-            onBlur={handleBlur}
-            className={`form-textarea ${
-              touched.requirements && errors.requirements ? 'form-input--error' : ''
-            }`}
-            placeholder="List the required skills, experience, education, and qualifications..."
+            id="notes"
+            name="notes"
+            value={formData.notes}
+            onChange={handleInputChange}
+            className={errors.notes ? 'error' : ''}
+            placeholder="Add any additional notes about this job application..."
             rows={4}
-            disabled={isLoading}
-            required
+            maxLength={1000}
           />
-          {touched.requirements && errors.requirements && (
-            <span className="form-error">{errors.requirements}</span>
+          {errors.notes && (
+            <span className="error-message">{errors.notes}</span>
           )}
           <div className="character-count">
-            {formData.requirements.length}/1000
+            {formData.notes.length}/1000 characters
           </div>
         </div>
-
-        {/* Submit Button */}
+        
         <div className="form-actions">
           <button
-            type="submit"
-            className={`btn btn-primary ${
-              isLoading ? 'btn--loading' : ''
-            } ${
-              !isFormValid ? 'btn--disabled' : ''
-            }`}
-            disabled={isLoading || !isFormValid}
+            type="button"
+            onClick={handleCancel}
+            className="btn btn-secondary"
+            disabled={isSubmitting}
           >
-            {isLoading ? (
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
               <>
-                <span className="loading-spinner"></span>
-                {initialData ? 'Updating...' : 'Creating...'}
+                <span className="spinner"></span>
+                {job ? 'Updating...' : 'Adding...'}
               </>
             ) : (
-              initialData ? 'Update Job' : 'Create Job'
+              job ? 'Update Job' : 'Add Job'
             )}
           </button>
         </div>
@@ -372,19 +346,4 @@ const JobForm = ({ onSubmit, initialData = null, isLoading = false }) => {
   );
 };
 
-JobForm.propTypes = {
-  onSubmit: PropTypes.func.isRequired,
-  initialData: PropTypes.shape({
-    title: PropTypes.string,
-    company: PropTypes.string,
-    location: PropTypes.string,
-    description: PropTypes.string,
-    requirements: PropTypes.string,
-    salary: PropTypes.string,
-    jobType: PropTypes.oneOf(['full-time', 'part-time', 'contract', 'freelance', 'internship']),
-    experienceLevel: PropTypes.oneOf(['entry', 'junior', 'mid', 'senior', 'lead', 'executive'])
-  }),
-  isLoading: PropTypes.bool
-};
-
-export default React.memo(JobForm);
+export default JobForm;
