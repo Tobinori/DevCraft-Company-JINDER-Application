@@ -1,153 +1,156 @@
 const express = require('express');
 const cors = require('cors');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
-const compression = require('compression');
-const morgan = require('morgan');
-const dotenv = require('dotenv');
+const bodyParser = require('body-parser');
 
-// Load environment variables
-dotenv.config();
-
+// Create Express application instance
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3001;
 
-// Security middleware
-app.use(helmet());
+// CORS Middleware
+// Purpose: Enables Cross-Origin Resource Sharing, allowing frontend (different port/domain) to communicate with backend
+// Without this, browsers block requests from different origins for security
+app.use(cors({
+  origin: ['http://localhost:3000', 'http://localhost:3001'], // Allow requests from these origins
+  credentials: true, // Allow cookies to be sent with requests
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allowed HTTP methods
+  allowedHeaders: ['Content-Type', 'Authorization'] // Allowed request headers
+}));
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-  message: {
-    error: 'Too many requests from this IP, please try again later.'
-  }
+// Body Parser Middleware
+// Purpose: Parses incoming request bodies and makes them available in req.body
+// JSON parser - converts JSON payloads to JavaScript objects
+app.use(bodyParser.json({
+  limit: '10mb' // Limit payload size to prevent memory issues
+}));
+
+// URL-encoded parser - handles form data submissions
+// Purpose: Parses application/x-www-form-urlencoded data (traditional HTML forms)
+app.use(bodyParser.urlencoded({
+  extended: true, // Use qs library for parsing (supports nested objects)
+  limit: '10mb'
+}));
+
+// Request Logging Middleware (for development)
+// Purpose: Logs all incoming requests for debugging and monitoring
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next(); // Pass control to next middleware
 });
-app.use(limiter);
 
-// CORS configuration
-const corsOptions = {
-  origin: process.env.NODE_ENV === 'production' 
-    ? process.env.FRONTEND_URL 
-    : 'http://localhost:3000',
-  credentials: true,
-  optionsSuccessStatus: 200
-};
-app.use(cors(corsOptions));
-
-// Compression middleware
-app.use(compression());
-
-// Logging middleware
-if (process.env.NODE_ENV === 'production') {
-  app.use(morgan('combined'));
-} else {
-  app.use(morgan('dev'));
-}
-
-// Body parsing middleware
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-
-// Health check endpoint
+// Basic Routes
+// Health check endpoint - useful for monitoring and deployment verification
 app.get('/health', (req, res) => {
   res.status(200).json({
     status: 'OK',
+    message: 'JINDER backend server is running',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    port: PORT
   });
 });
-
-// API routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/profiles', require('./routes/profiles'));
-app.use('/api/matches', require('./routes/matches'));
-app.use('/api/messages', require('./routes/messages'));
-app.use('/api/upload', require('./routes/upload'));
 
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
-    message: 'JINDER API Server',
+    message: 'Welcome to JINDER API',
     version: '1.0.0',
-    status: 'Running'
+    endpoints: {
+      health: '/health',
+      api: '/api/*'
+    }
   });
 });
 
-// 404 handler
+// API Routes placeholder
+// Purpose: All main application routes will be mounted here
+app.use('/api', (req, res, next) => {
+  // This is where we'll add our main API routes later
+  res.status(404).json({
+    error: 'API endpoint not implemented yet',
+    path: req.path,
+    method: req.method
+  });
+});
+
+// 404 Handler - Catch all unmatched routes
+// Purpose: Provides meaningful response for undefined endpoints
 app.use('*', (req, res) => {
   res.status(404).json({
     error: 'Route not found',
-    message: `The requested endpoint ${req.originalUrl} does not exist`
+    message: `Cannot ${req.method} ${req.originalUrl}`,
+    availableEndpoints: ['/', '/health', '/api']
   });
 });
 
-// Global error handler
+// Global Error Handler Middleware
+// Purpose: Catches all errors thrown in the application and provides consistent error responses
+// This must be defined after all other middleware and routes
 app.use((error, req, res, next) => {
-  console.error('Server Error:', error);
+  console.error('Global Error Handler:', {
+    message: error.message,
+    stack: error.stack,
+    url: req.url,
+    method: req.method,
+    timestamp: new Date().toISOString()
+  });
+
+  // Determine error status code
+  const statusCode = error.statusCode || error.status || 500;
   
-  // Mongoose validation error
-  if (error.name === 'ValidationError') {
-    const errors = Object.values(error.errors).map(err => err.message);
-    return res.status(400).json({
-      error: 'Validation Error',
-      message: errors.join(', ')
-    });
+  // Prepare error response
+  const errorResponse = {
+    error: true,
+    message: error.message || 'Internal Server Error',
+    timestamp: new Date().toISOString()
+  };
+
+  // Add stack trace in development mode only
+  if (process.env.NODE_ENV === 'development') {
+    errorResponse.stack = error.stack;
+    errorResponse.details = error;
   }
-  
-  // JWT error
-  if (error.name === 'JsonWebTokenError') {
-    return res.status(401).json({
-      error: 'Authentication Error',
-      message: 'Invalid token'
-    });
-  }
-  
-  // Multer error (file upload)
-  if (error.code === 'LIMIT_FILE_SIZE') {
-    return res.status(400).json({
-      error: 'File Too Large',
-      message: 'File size exceeds the maximum limit'
-    });
-  }
-  
-  // Default server error
-  res.status(error.status || 500).json({
-    error: 'Internal Server Error',
-    message: process.env.NODE_ENV === 'production' 
-      ? 'Something went wrong' 
-      : error.message
+
+  res.status(statusCode).json(errorResponse);
+});
+
+// Graceful Shutdown Handler
+// Purpose: Handles shutdown signals to close server gracefully
+process.on('SIGINT', () => {
+  console.log('\nReceived SIGINT. Shutting down gracefully...');
+  server.close(() => {
+    console.log('Server closed.');
+    process.exit(0);
   });
 });
 
-// Graceful shutdown handler
 process.on('SIGTERM', () => {
-  console.log('SIGTERM received. Shutting down gracefully...');
-  process.exit(0);
+  console.log('Received SIGTERM. Shutting down gracefully...');
+  server.close(() => {
+    console.log('Server closed.');
+    process.exit(0);
+  });
 });
 
-process.on('SIGINT', () => {
-  console.log('SIGINT received. Shutting down gracefully...');
-  process.exit(0);
+// Start Server
+// Purpose: Binds the server to the specified port and begins listening for requests
+const server = app.listen(PORT, () => {
+  console.log('=================================');
+  console.log('🚀 JINDER Backend Server Started');
+  console.log('=================================');
+  console.log(`📍 Server running on port: ${PORT}`);
+  console.log(`🌐 Local URL: http://localhost:${PORT}`);
+  console.log(`🏥 Health check: http://localhost:${PORT}/health`);
+  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log('=================================');
 });
 
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (err) => {
-  console.error('Unhandled Promise Rejection:', err);
+// Handle server startup errors
+server.on('error', (error) => {
+  if (error.code === 'EADDRINUSE') {
+    console.error(`❌ Port ${PORT} is already in use. Please try a different port.`);
+  } else {
+    console.error('❌ Server startup error:', error.message);
+  }
   process.exit(1);
-});
-
-// Handle uncaught exceptions
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err);
-  process.exit(1);
-});
-
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 JINDER Server running on port ${PORT}`);
-  console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🌐 CORS Origin: ${corsOptions.origin}`);
 });
 
 module.exports = app;
