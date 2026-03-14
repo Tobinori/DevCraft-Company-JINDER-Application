@@ -1,0 +1,161 @@
+.job-tracker {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 20px;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: #f5f7fa;
+  min-height: 100vh;
+}
+
+.job-tracker__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+  padding: 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.job-tracker__title {
+  margin: 0;
+  color: #2c3e50;
+  font-size: 2.2rem;
+  font-weight: 600;
+}
+
+.job-tracker__toggle-btn {
+  padding: 12px 24px;
+  border: none;
+  border-radius: 8px;
+  background: #3498db;
+  color: white;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(52, 152, 219, 0.3);
+}
+
+.job-tracker__toggle-btn:hover {
+  background: #2980b9;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(52, 152, 219, 0.4);
+}
+
+.job-tracker__toggle-btn.active {
+  background: #e74c3c;
+  box-shadow: 0 2px 4px rgba(231, 76, 60, 0.3);
+}
+
+.job-tracker__toggle-btn.active:hover {
+  background: #c0392b;
+  box-shadow: 0 4px 8px rgba(231, 76, 60, 0.4);
+}
+
+.job-tracker__content {
+  display: grid;
+  gap: 30px;
+  grid-template-columns: 1fr;
+}
+
+.job-tracker__form-section {
+  background: white;
+  border-radius: 12px;
+  padding: 25px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e1e8ed;
+  animation: slideDown 0.3s ease-out;
+}
+
+.job-tracker__list-section {
+  background: white;
+  border-radius: 12px;
+  padding: 25px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e1e8ed;
+}
+
+.job-tracker__empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  margin-top: 20px;
+}
+
+.job-tracker__empty-state p {
+  font-size: 1.2rem;
+  color: #7f8c8d;
+  margin-bottom: 20px;
+}
+
+.job-tracker__empty-btn {
+  padding: 15px 30px;
+  border: none;
+  border-radius: 8px;
+  background: #27ae60;
+  color: white;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(39, 174, 96, 0.3);
+}
+
+.job-tracker__empty-btn:hover {
+  background: #219a52;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(39, 174, 96, 0.4);
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .job-tracker {
+    padding: 15px;
+  }
+
+  .job-tracker__header {
+    flex-direction: column;
+    gap: 20px;
+    text-align: center;
+  }
+
+  .job-tracker__title {
+    font-size: 1.8rem;
+  }
+
+  .job-tracker__toggle-btn {
+    width: 100%;
+    max-width: 300px;
+  }
+
+  .job-tracker__form-section,
+  .job-tracker__list-section {
+    padding: 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .job-tracker__title {
+    font-size: 1.5rem;
+  }
+
+  .job-tracker__form-section,
+  .job-tracker__list-section {
+    padding: 15px;
+  }
+}
