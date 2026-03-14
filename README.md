@@ -1,70 +1,110 @@
-# JINDER - Job Application Tracker
+# 🔥 JINDER - AI-Powered Job Matching Platform
 
-## Overview
-JINDER is a modern job application tracking system built with React frontend and Node.js backend. It helps users manage their job applications, track application status, and organize their job search process.
+## Quick Start Guide
 
-## Features
-- Track job applications with status updates
-- Store company information and job details
-- Add notes and follow-up reminders
-- Clean, intuitive user interface
-- RESTful API backend
+### Prerequisites
+- Node.js (v16 or higher)
+- npm (v8 or higher)
 
-## Tech Stack
-- **Frontend**: React, CSS3, Modern JavaScript
-- **Backend**: Node.js, Express.js
-- **Development**: Modern ES6+ features
+### Installation & Demo
 
-## Project Structure
+1. **Clone and setup:**
+   ```bash
+   git clone <repository-url>
+   cd jinder
+   npm install
+   ```
+
+2. **Setup client:**
+   ```bash
+   cd client
+   npm install
+   cd ..
+   ```
+
+3. **Start the demo:**
+   ```bash
+   # Terminal 1: Start backend server
+   npm start
+   
+   # Terminal 2: Start React client (in new terminal)
+   cd client
+   npm start
+   ```
+
+4. **Access the demo:**
+   - Frontend: http://localhost:3000
+   - Backend API: http://localhost:5000
+   - Health check: http://localhost:5000/api/health
+
+### Demo Features
+
+✅ **Working Features:**
+- Job card swiping interface
+- Sample job data display
+- Responsive design
+- API health monitoring
+- Error handling
+
+### Architecture
+
 ```
 jinder/
-├── backend/          # Node.js/Express API server
-│   ├── server.js     # Main server file
-│   ├── package.json  # Backend dependencies
-│   └── routes/       # API routes
-├── frontend/         # React application
-│   ├── src/          # React source code
-│   ├── public/       # Static assets
-│   └── package.json  # Frontend dependencies
-├── docs/             # Documentation
-└── README.md         # This file
+├── server.js              # Express backend server
+├── package.json           # Backend dependencies
+├── client/                # React frontend
+│   ├── src/
+│   │   ├── App.js        # Main React component
+│   │   ├── App.css       # Styling
+│   │   └── index.js      # React entry point
+│   └── package.json      # Frontend dependencies
+└── README.md             # This file
 ```
 
-## Quick Start
+### API Endpoints
 
-### Backend Setup
-```bash
-cd backend
-npm install
-npm run dev
-```
-Server runs on http://localhost:5000
+- `GET /api/health` - Server health check
+- `GET /api/jobs` - Fetch sample jobs
 
-### Frontend Setup
-```bash
-cd frontend
-npm install
-npm start
-```
-Application runs on http://localhost:3000
+### Troubleshooting
 
-## API Endpoints
-- `GET /api/health` - Health check
-- `GET /api/jobs` - Get all jobs
-- `GET /api/jobs/:id` - Get specific job
-- `POST /api/jobs` - Create new job
-- `PUT /api/jobs/:id` - Update job
-- `DELETE /api/jobs/:id` - Delete job
+**Common Issues:**
 
-## Development Status
-✅ Basic project structure
-✅ Backend API with mock data
-✅ Frontend React components
-🔄 Integration testing
-⏳ Production deployment
+1. **Port conflicts:**
+   - Backend uses port 5000
+   - Frontend uses port 3000
+   - Make sure these ports are available
 
-## Demo
-This project includes sample data and is ready for demonstration. Follow the Quick Start guide to run locally.
+2. **Dependencies:**
+   ```bash
+   # Clean install if issues
+   rm -rf node_modules package-lock.json
+   npm install
+   ```
+
+3. **Build issues:**
+   ```bash
+   # For production build
+   cd client && npm run build
+   ```
+
+### Development
+
+- Backend runs with `nodemon` for auto-restart
+- Frontend has hot-reload enabled
+- API proxy configured in client package.json
+
+### Next Steps
+
+- [ ] Connect to MongoDB
+- [ ] Add user authentication
+- [ ] Implement AI matching algorithm
+- [ ] Add real job data integration
+- [ ] Deploy to production
 
 ---
-**DevCraft Solutions** - Built for efficient job application tracking
+
+**Demo Status: ✅ WORKING**
+
+Last updated: $(date)
+Contact: JINDER Development Team
