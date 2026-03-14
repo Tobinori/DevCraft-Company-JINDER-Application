@@ -1,110 +1,165 @@
-# 🔥 JINDER - AI-Powered Job Matching Platform
+# JINDER - AI-Powered Job Matching Platform
 
-## Quick Start Guide
+JINDER is an innovative job matching platform that uses AI to connect job seekers with relevant opportunities, similar to how dating apps work but for professional networking.
 
-### Prerequisites
-- Node.js (v16 or higher)
-- npm (v8 or higher)
-
-### Installation & Demo
-
-1. **Clone and setup:**
-   ```bash
-   git clone <repository-url>
-   cd jinder
-   npm install
-   ```
-
-2. **Setup client:**
-   ```bash
-   cd client
-   npm install
-   cd ..
-   ```
-
-3. **Start the demo:**
-   ```bash
-   # Terminal 1: Start backend server
-   npm start
-   
-   # Terminal 2: Start React client (in new terminal)
-   cd client
-   npm start
-   ```
-
-4. **Access the demo:**
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:5000
-   - Health check: http://localhost:5000/api/health
-
-### Demo Features
-
-✅ **Working Features:**
-- Job card swiping interface
-- Sample job data display
-- Responsive design
-- API health monitoring
-- Error handling
-
-### Architecture
+## 🚀 Project Structure
 
 ```
 jinder/
-├── server.js              # Express backend server
-├── package.json           # Backend dependencies
-├── client/                # React frontend
-│   ├── src/
-│   │   ├── App.js        # Main React component
-│   │   ├── App.css       # Styling
-│   │   └── index.js      # React entry point
-│   └── package.json      # Frontend dependencies
-└── README.md             # This file
+├── README.md                 # Project documentation
+├── package.json             # Root package.json with project scripts
+├── .gitignore              # Git ignore rules
+│
+├── backend/                # Backend API (Node.js/Express)
+│   ├── package.json        # Backend dependencies
+│   ├── server.js          # Express server entry point
+│   ├── config/            # Database and app configuration
+│   ├── models/            # Database models
+│   ├── routes/            # API routes
+│   ├── middleware/        # Custom middleware
+│   ├── controllers/       # Route controllers
+│   └── utils/             # Utility functions
+│
+└── frontend/              # Frontend React App
+    ├── package.json       # Frontend dependencies
+    ├── public/            # Public assets
+    └── src/               # React source code
+        ├── components/    # Reusable components
+        ├── pages/         # Page components
+        ├── hooks/         # Custom React hooks
+        ├── services/      # API services
+        ├── utils/         # Utility functions
+        ├── styles/        # CSS/styling files
+        └── App.js         # Main App component
 ```
 
-### API Endpoints
+## 🛠️ Installation & Setup
 
-- `GET /api/health` - Server health check
-- `GET /api/jobs` - Fetch sample jobs
+### Prerequisites
+- Node.js (v16 or higher)
+- npm or yarn
+- MongoDB (local or Atlas)
 
-### Troubleshooting
+### Quick Start
 
-**Common Issues:**
-
-1. **Port conflicts:**
-   - Backend uses port 5000
-   - Frontend uses port 3000
-   - Make sure these ports are available
-
-2. **Dependencies:**
+1. **Clone the repository**
    ```bash
-   # Clean install if issues
-   rm -rf node_modules package-lock.json
-   npm install
+   git clone https://github.com/yourusername/jinder.git
+   cd jinder
    ```
 
-3. **Build issues:**
+2. **Install all dependencies**
    ```bash
-   # For production build
-   cd client && npm run build
+   npm run install:all
    ```
 
-### Development
+3. **Environment Setup**
+   - Copy `.env.example` to `.env` in the backend folder
+   - Configure your MongoDB connection string
+   - Set JWT secret and other environment variables
 
-- Backend runs with `nodemon` for auto-restart
-- Frontend has hot-reload enabled
-- API proxy configured in client package.json
+4. **Start development servers**
+   ```bash
+   npm run dev
+   ```
+   This starts both backend (port 3001) and frontend (port 3000) concurrently.
 
-### Next Steps
+### Individual Services
 
-- [ ] Connect to MongoDB
-- [ ] Add user authentication
-- [ ] Implement AI matching algorithm
-- [ ] Add real job data integration
-- [ ] Deploy to production
+**Backend only:**
+```bash
+cd backend
+npm install
+npm run dev
+```
+
+**Frontend only:**
+```bash
+cd frontend
+npm install
+npm start
+```
+
+## 📁 Directory Guidelines
+
+### ⚠️ Important Structure Notes
+
+- **NO `src/` folder in root directory** - This was causing conflicts
+- Frontend React code belongs in `frontend/src/`
+- Backend code belongs directly in `backend/`
+- Keep clear separation between frontend and backend
+
+### Backend Structure (`backend/`)
+- `server.js` - Main server file
+- `config/` - Database configuration, environment setup
+- `models/` - Mongoose/Database models
+- `routes/` - Express route definitions
+- `controllers/` - Business logic for routes
+- `middleware/` - Authentication, validation, etc.
+- `utils/` - Helper functions
+
+### Frontend Structure (`frontend/src/`)
+- `components/` - Reusable UI components
+- `pages/` - Main page components
+- `hooks/` - Custom React hooks
+- `services/` - API integration
+- `utils/` - Frontend utilities
+- `styles/` - CSS and styling
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+npm test
+
+# Backend tests only
+npm run test:backend
+
+# Frontend tests only
+npm run test:frontend
+```
+
+## 🚀 Deployment
+
+```bash
+# Build frontend for production
+npm run build
+
+# Start production server
+npm start
+```
+
+## 🤝 Contributing
+
+1. Follow the established directory structure
+2. Keep backend and frontend code separated
+3. Use meaningful commit messages
+4. Write tests for new features
+5. Update documentation as needed
+
+## 📝 API Documentation
+
+The backend API will be documented using Swagger/OpenAPI. Access documentation at:
+`http://localhost:3001/api-docs` (when server is running)
+
+## 🔧 Environment Variables
+
+Create `.env` file in the `backend/` directory:
+
+```env
+NODE_ENV=development
+PORT=3001
+MONGODB_URI=mongodb://localhost:27017/jinder
+JWT_SECRET=your_jwt_secret_here
+JWT_EXPIRE=30d
+```
+
+## 📄 License
+
+MIT License - see LICENSE file for details
 
 ---
 
-**Demo Status: ✅ WORKING**
+**Team:** Mike Chen (Senior Developer), Sarah Johnson (UI/UX Designer), Jennifer Martinez (Project Manager)
 
-Last updated: $(date)
-Contact: JINDER Development Team
+**Last Updated:** December 2024
