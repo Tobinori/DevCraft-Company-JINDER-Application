@@ -1,231 +1,219 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { ErrorBoundary } from 'react-error-boundary';
 import './App.css';
-
-// Component imports
-import Header from './components/Header';
-import Dashboard from './components/Dashboard';
 import JobList from './components/JobList';
 import JobForm from './components/JobForm';
-import JobDetail from './components/JobDetail';
-import Analytics from './components/Analytics';
-import Settings from './components/Settings';
-import NotFound from './components/NotFound';
+import Navigation from './components/Navigation';
 
-// Error Fallback Component
-function ErrorFallback({ error, resetErrorBoundary }) {
-  return (
-    <div className="error-boundary">
-      <h2>Something went wrong:</h2>
-      <pre>{error.message}</pre>
-      <button onClick={resetErrorBoundary}>Try again</button>
-    </div>
-  );
-}
-
-// Main App Component
 function App() {
   const [jobs, setJobs] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Load jobs from localStorage on mount
+  // Load jobs from localStorage on component mount
   useEffect(() => {
-    try {
-      const savedJobs = localStorage.getItem('jinderJobs');
-      if (savedJobs) {
+    const savedJobs = localStorage.getItem('jinder-jobs');
+    if (savedJobs) {
+      try {
         setJobs(JSON.parse(savedJobs));
+      } catch (err) {
+        console.error('Error parsing saved jobs:', err);
+        setError('Failed to load saved jobs');
       }
-      setLoading(false);
-    } catch (err) {
-      console.error('Error loading jobs:', err);
-      setError('Failed to load jobs');
-      setLoading(false);
     }
   }, []);
 
-  // Save jobs to localStorage whenever jobs change
+  // Save jobs to localStorage whenever jobs array changes
   useEffect(() => {
-    try {
-      localStorage.setItem('jinderJobs', JSON.stringify(jobs));
-    } catch (err) {
-      console.error('Error saving jobs:', err);
-      setError('Failed to save jobs');
+    if (jobs.length > 0) {
+      localStorage.setItem('jinder-jobs', JSON.stringify(jobs));
     }
   }, [jobs]);
 
-  // Job management functions
+  // Add new job
   const addJob = (jobData) => {
     try {
+      setLoading(true);
       const newJob = {
-        id: Date.now().toString(),
+        id: Date.now().toString(), // Simple ID generation
         ...jobData,
-        status: jobData.status || 'applied',
-        dateAdded: new Date().toISOString(),
-        lastUpdated: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        status: 'applied' // Default status
       };
+      
       setJobs(prevJobs => [...prevJobs, newJob]);
-      return newJob;
+      setError(null);
+      return newJob.id;
     } catch (err) {
       console.error('Error adding job:', err);
       setError('Failed to add job');
-      throw err;
+      return null;
+    } finally {
+      setLoading(false);
     }
   };
 
-  const updateJob = (jobId, updates) => {
+  // Edit existing job
+  const editJob = (jobId, updatedData) => {
     try {
+      setLoading(true);
       setJobs(prevJobs => 
         prevJobs.map(job => 
           job.id === jobId 
-            ? { ...job, ...updates, lastUpdated: new Date().toISOString() }
+            ? { 
+                ...job, 
+                ...updatedData, 
+                updatedAt: new Date().toISOString() 
+              }
             : job
         )
       );
+      setError(null);
+      return true;
     } catch (err) {
-      console.error('Error updating job:', err);
+      console.error('Error editing job:', err);
       setError('Failed to update job');
-      throw err;
+      return false;
+    } finally {
+      setLoading(false);
     }
   };
 
+  // Delete job
   const deleteJob = (jobId) => {
     try {
+      setLoading(true);
       setJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
+      setError(null);
+      return true;
     } catch (err) {
       console.error('Error deleting job:', err);
       setError('Failed to delete job');
-      throw err;
+      return false;
+    } finally {
+      setLoading(false);
     }
   };
 
-  const updateJobStatus = (jobId, newStatus) => {
-    try {
-      updateJob(jobId, { status: newStatus });
-    } catch (err) {
-      console.error('Error updating job status:', err);
-      throw err;
-    }
+  // Get job by ID
+  const getJobById = (jobId) => {
+    return jobs.find(job => job.id === jobId);
   };
 
-  // Clear error function
-  const clearError = () => setError(null);
+  // Update job status
+  const updateJobStatus = (jobId, status) => {
+    return editJob(jobId, { status });
+  };
 
-  if (loading) {
-    return (
-      <div className="app-loading">
-        <div className="loading-spinner"></div>
-        <p>Loading JINDER...</p>
-      </div>
-    );
-  }
+  // Clear error
+  const clearError = () => {
+    setError(null);
+  };
+
+  // Clear all jobs
+  const clearAllJobs = () => {
+    if (window.confirm('Are you sure you want to delete all jobs? This action cannot be undone.')) {
+      setJobs([]);
+      localStorage.removeItem('jinder-jobs');
+    }
+  };
 
   return (
-    <ErrorBoundary
-      FallbackComponent={ErrorFallback}
-      onReset={() => {
-        setError(null);
-        window.location.reload();
-      }}
-    >
-      <Router>
-        <div className="App">
-          <Header />
-          
-          {error && (
-            <div className="error-banner">
-              <span>{error}</span>
-              <button onClick={clearError}>×</button>
-            </div>
-          )}
+    <Router>
+      <div className="app">
+        <header className="app-header">
+          <h1>JINDER</h1>
+          <p className="app-subtitle">Job Application Tracker</p>
+        </header>
 
-          <main className="main-content">
-            <Routes>
-              {/* Dashboard Route */}
-              <Route 
-                path="/" 
-                element={
-                  <Dashboard 
-                    jobs={jobs}
-                    onStatusUpdate={updateJobStatus}
-                    onDeleteJob={deleteJob}
-                  />
-                } 
-              />
-              
-              {/* Job List Route */}
-              <Route 
-                path="/jobs" 
-                element={
-                  <JobList 
-                    jobs={jobs}
-                    onStatusUpdate={updateJobStatus}
-                    onDeleteJob={deleteJob}
-                    onEditJob={updateJob}
-                  />
-                } 
-              />
-              
-              {/* Add Job Route */}
-              <Route 
-                path="/jobs/new" 
-                element={
-                  <JobForm 
-                    onSubmit={addJob}
-                    onCancel={() => window.history.back()}
-                  />
-                } 
-              />
-              
-              {/* Job Detail Route */}
-              <Route 
-                path="/jobs/:id" 
-                element={
-                  <JobDetail 
-                    jobs={jobs}
-                    onStatusUpdate={updateJobStatus}
-                    onDeleteJob={deleteJob}
-                    onUpdateJob={updateJob}
-                  />
-                } 
-              />
-              
-              {/* Edit Job Route */}
-              <Route 
-                path="/jobs/:id/edit" 
-                element={
-                  <JobForm 
-                    jobs={jobs}
-                    onSubmit={updateJob}
-                    onCancel={() => window.history.back()}
-                    editMode={true}
-                  />
-                } 
-              />
-              
-              {/* Analytics Route */}
-              <Route 
-                path="/analytics" 
-                element={<Analytics jobs={jobs} />} 
-              />
-              
-              {/* Settings Route */}
-              <Route 
-                path="/settings" 
-                element={<Settings />} 
-              />
-              
-              {/* Redirect old routes */}
-              <Route path="/dashboard" element={<Navigate to="/" replace />} />
-              
-              {/* 404 Route */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </main>
-        </div>
-      </Router>
-    </ErrorBoundary>
+        <Navigation jobCount={jobs.length} />
+
+        {error && (
+          <div className="error-banner">
+            <span>{error}</span>
+            <button onClick={clearError} className="error-close">
+              ×
+            </button>
+          </div>
+        )}
+
+        {loading && (
+          <div className="loading-banner">
+            Processing...
+          </div>
+        )}
+
+        <main className="app-main">
+          <Routes>
+            {/* Default route - redirect to jobs list */}
+            <Route 
+              path="/" 
+              element={<Navigate to="/jobs" replace />} 
+            />
+            
+            {/* Jobs list view */}
+            <Route 
+              path="/jobs" 
+              element={
+                <JobList 
+                  jobs={jobs}
+                  onEditJob={editJob}
+                  onDeleteJob={deleteJob}
+                  onUpdateStatus={updateJobStatus}
+                  onClearAll={clearAllJobs}
+                  loading={loading}
+                />
+              } 
+            />
+            
+            {/* Add new job form */}
+            <Route 
+              path="/add" 
+              element={
+                <JobForm 
+                  onSubmit={addJob}
+                  onCancel={() => window.history.back()}
+                  loading={loading}
+                />
+              } 
+            />
+            
+            {/* Edit job form */}
+            <Route 
+              path="/edit/:id" 
+              element={
+                <JobForm 
+                  job={getJobById}
+                  onSubmit={editJob}
+                  onCancel={() => window.history.back()}
+                  loading={loading}
+                  isEditing={true}
+                />
+              } 
+            />
+            
+            {/* Catch all route */}
+            <Route 
+              path="*" 
+              element={
+                <div className="not-found">
+                  <h2>Page Not Found</h2>
+                  <p>The page you're looking for doesn't exist.</p>
+                  <button onClick={() => window.history.back()}>
+                    Go Back
+                  </button>
+                </div>
+              } 
+            />
+          </Routes>
+        </main>
+
+        <footer className="app-footer">
+          <p>&copy; 2024 JINDER - Job Application Tracker</p>
+        </footer>
+      </div>
+    </Router>
   );
 }
 
