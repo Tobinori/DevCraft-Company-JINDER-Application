@@ -1,249 +1,252 @@
-// API service for job-related operations
+import axios from 'axios';
 
-// Base configuration
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
+// Base URL configuration - can be overridden by environment variables
+const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api';
 
-// Custom error class for API errors
-class APIError extends Error {
-  constructor(message, status, data = null) {
-    super(message);
-    this.name = 'APIError';
-    this.status = status;
-    this.data = data;
-  }
-}
+// Create axios instance with default configuration
+const apiClient = axios.create({
+  baseURL: BASE_URL,
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
-// Helper function to handle API responses
-const handleResponse = async (response) => {
-  const contentType = response.headers.get('content-type');
-  const hasJson = contentType && contentType.includes('application/json');
-  const data = hasJson ? await response.json() : await response.text();
-
-  if (!response.ok) {
-    const errorMessage = hasJson && data.message ? data.message : `HTTP ${response.status}: ${response.statusText}`;
-    throw new APIError(errorMessage, response.status, data);
-  }
-
-  return data;
-};
-
-// Helper function to make API requests
-const apiRequest = async (endpoint, options = {}) => {
-  try {
-    const url = `${API_BASE_URL}${endpoint}`;
-    const config = {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
-      ...options,
-    };
-
-    // Add authorization header if token exists
+// Request interceptor for adding auth tokens if needed
+apiClient.interceptors.request.use(
+  (config) => {
+    // Add auth token if available
     const token = localStorage.getItem('authToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
-    const response = await fetch(url, config);
-    return await handleResponse(response);
-  } catch (error) {
-    if (error instanceof APIError) {
-      throw error;
+// Response interceptor for handling common errors
+apiClient.interceptors.response.use(
+  (response) => {
+    return response;
+  },
+  (error) => {
+    // Handle common HTTP errors
+    if (error.response) {
+      // Server responded with error status
+      const { status, data } = error.response;
+      
+      switch (status) {
+        case 401:
+          // Unauthorized - clear auth token and redirect to login
+          localStorage.removeItem('authToken');
+          window.location.href = '/login';
+          break;
+        case 403:
+          console.error('Access forbidden:', data.message || 'Insufficient permissions');
+          break;
+        case 404:
+          console.error('Resource not found:', data.message || 'The requested resource was not found');
+          break;
+        case 500:
+          console.error('Server error:', data.message || 'Internal server error');
+          break;
+        default:
+          console.error('API Error:', data.message || `HTTP ${status} error`);
+      }
+      
+      // Return a formatted error object
+      return Promise.reject({
+        status,
+        message: data.message || `HTTP ${status} error`,
+        data: data,
+      });
+    } else if (error.request) {
+      // Network error
+      console.error('Network error:', error.message);
+      return Promise.reject({
+        status: 0,
+        message: 'Network error - please check your connection',
+        data: null,
+      });
+    } else {
+      // Other error
+      console.error('Request error:', error.message);
+      return Promise.reject({
+        status: -1,
+        message: error.message,
+        data: null,
+      });
     }
-    // Handle network errors or other unexpected errors
-    throw new APIError('Network error or server unavailable', 0, error.message);
+  }
+);
+
+// API Functions
+
+/**
+ * Fetch all jobs
+ * @param {Object} params - Query parameters (optional)
+ * @param {number} params.page - Page number for pagination
+ * @param {number} params.limit - Number of items per page
+ * @param {string} params.search - Search term
+ * @param {string} params.status - Filter by job status
+ * @returns {Promise<Object>} Jobs data with pagination info
+ */
+export const fetchJobs = async (params = {}) => {
+  try {
+    const response = await apiClient.get('/jobs', { params });
+    return {
+      success: true,
+      data: response.data,
+      message: 'Jobs fetched successfully',
+    };
+  } catch (error) {
+    console.error('Error fetching jobs:', error);
+    return {
+      success: false,
+      data: null,
+      message: error.message || 'Failed to fetch jobs',
+      error,
+    };
   }
 };
 
-// Job API functions
-const jobAPI = {
-  /**
-   * Fetch all jobs with optional query parameters
-   * @param {Object} params - Query parameters (page, limit, search, etc.)
-   * @returns {Promise<Object>} Response with jobs array and metadata
-   */
-  fetchJobs: async (params = {}) => {
-    try {
-      const queryString = new URLSearchParams(params).toString();
-      const endpoint = `/jobs${queryString ? `?${queryString}` : ''}`;
-      
-      const data = await apiRequest(endpoint, {
-        method: 'GET',
-      });
-
-      return data;
-    } catch (error) {
-      console.error('Error fetching jobs:', error);
-      throw error;
+/**
+ * Create a new job
+ * @param {Object} jobData - Job data object
+ * @param {string} jobData.title - Job title
+ * @param {string} jobData.company - Company name
+ * @param {string} jobData.description - Job description
+ * @param {string} jobData.location - Job location
+ * @param {string} jobData.salary - Salary information
+ * @param {Array} jobData.requirements - Job requirements
+ * @param {string} jobData.status - Job status (open, closed, etc.)
+ * @returns {Promise<Object>} Created job data
+ */
+export const createJob = async (jobData) => {
+  try {
+    // Validate required fields
+    if (!jobData.title || !jobData.company) {
+      throw new Error('Title and company are required fields');
     }
-  },
 
-  /**
-   * Fetch a single job by ID
-   * @param {string|number} id - Job ID
-   * @returns {Promise<Object>} Job data
-   */
-  fetchJobById: async (id) => {
-    try {
-      if (!id) {
-        throw new APIError('Job ID is required', 400);
-      }
-
-      const data = await apiRequest(`/jobs/${id}`, {
-        method: 'GET',
-      });
-
-      return data;
-    } catch (error) {
-      console.error(`Error fetching job ${id}:`, error);
-      throw error;
-    }
-  },
-
-  /**
-   * Create a new job
-   * @param {Object} jobData - Job data to create
-   * @returns {Promise<Object>} Created job data
-   */
-  createJob: async (jobData) => {
-    try {
-      if (!jobData || typeof jobData !== 'object') {
-        throw new APIError('Valid job data is required', 400);
-      }
-
-      // Validate required fields
-      const requiredFields = ['title', 'company', 'location'];
-      const missingFields = requiredFields.filter(field => !jobData[field]);
-      
-      if (missingFields.length > 0) {
-        throw new APIError(`Missing required fields: ${missingFields.join(', ')}`, 400);
-      }
-
-      const data = await apiRequest('/jobs', {
-        method: 'POST',
-        body: JSON.stringify(jobData),
-      });
-
-      return data;
-    } catch (error) {
-      console.error('Error creating job:', error);
-      throw error;
-    }
-  },
-
-  /**
-   * Update an existing job
-   * @param {string|number} id - Job ID to update
-   * @param {Object} jobData - Updated job data
-   * @returns {Promise<Object>} Updated job data
-   */
-  updateJob: async (id, jobData) => {
-    try {
-      if (!id) {
-        throw new APIError('Job ID is required', 400);
-      }
-
-      if (!jobData || typeof jobData !== 'object') {
-        throw new APIError('Valid job data is required', 400);
-      }
-
-      const data = await apiRequest(`/jobs/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(jobData),
-      });
-
-      return data;
-    } catch (error) {
-      console.error(`Error updating job ${id}:`, error);
-      throw error;
-    }
-  },
-
-  /**
-   * Partially update a job (PATCH)
-   * @param {string|number} id - Job ID to update
-   * @param {Object} updates - Partial job data updates
-   * @returns {Promise<Object>} Updated job data
-   */
-  patchJob: async (id, updates) => {
-    try {
-      if (!id) {
-        throw new APIError('Job ID is required', 400);
-      }
-
-      if (!updates || typeof updates !== 'object') {
-        throw new APIError('Valid update data is required', 400);
-      }
-
-      const data = await apiRequest(`/jobs/${id}`, {
-        method: 'PATCH',
-        body: JSON.stringify(updates),
-      });
-
-      return data;
-    } catch (error) {
-      console.error(`Error patching job ${id}:`, error);
-      throw error;
-    }
-  },
-
-  /**
-   * Delete a job
-   * @param {string|number} id - Job ID to delete
-   * @returns {Promise<Object>} Deletion confirmation
-   */
-  deleteJob: async (id) => {
-    try {
-      if (!id) {
-        throw new APIError('Job ID is required', 400);
-      }
-
-      const data = await apiRequest(`/jobs/${id}`, {
-        method: 'DELETE',
-      });
-
-      return data;
-    } catch (error) {
-      console.error(`Error deleting job ${id}:`, error);
-      throw error;
-    }
-  },
-
-  /**
-   * Batch operations for jobs
-   * @param {Array} operations - Array of operations to perform
-   * @returns {Promise<Object>} Batch operation results
-   */
-  batchJobs: async (operations) => {
-    try {
-      if (!Array.isArray(operations) || operations.length === 0) {
-        throw new APIError('Valid operations array is required', 400);
-      }
-
-      const data = await apiRequest('/jobs/batch', {
-        method: 'POST',
-        body: JSON.stringify({ operations }),
-      });
-
-      return data;
-    } catch (error) {
-      console.error('Error performing batch operations:', error);
-      throw error;
-    }
-  },
+    const response = await apiClient.post('/jobs', jobData);
+    return {
+      success: true,
+      data: response.data,
+      message: 'Job created successfully',
+    };
+  } catch (error) {
+    console.error('Error creating job:', error);
+    return {
+      success: false,
+      data: null,
+      message: error.message || 'Failed to create job',
+      error,
+    };
+  }
 };
 
-// Export the API functions and error class
-export { jobAPI as default, APIError };
+/**
+ * Update an existing job
+ * @param {string|number} id - Job ID
+ * @param {Object} jobData - Updated job data
+ * @returns {Promise<Object>} Updated job data
+ */
+export const updateJob = async (id, jobData) => {
+  try {
+    if (!id) {
+      throw new Error('Job ID is required for update');
+    }
 
-// Also export individual functions for convenience
-export const {
+    const response = await apiClient.put(`/jobs/${id}`, jobData);
+    return {
+      success: true,
+      data: response.data,
+      message: 'Job updated successfully',
+    };
+  } catch (error) {
+    console.error('Error updating job:', error);
+    return {
+      success: false,
+      data: null,
+      message: error.message || 'Failed to update job',
+      error,
+    };
+  }
+};
+
+/**
+ * Delete a job
+ * @param {string|number} id - Job ID
+ * @returns {Promise<Object>} Deletion confirmation
+ */
+export const deleteJob = async (id) => {
+  try {
+    if (!id) {
+      throw new Error('Job ID is required for deletion');
+    }
+
+    const response = await apiClient.delete(`/jobs/${id}`);
+    return {
+      success: true,
+      data: response.data,
+      message: 'Job deleted successfully',
+    };
+  } catch (error) {
+    console.error('Error deleting job:', error);
+    return {
+      success: false,
+      data: null,
+      message: error.message || 'Failed to delete job',
+      error,
+    };
+  }
+};
+
+/**
+ * Fetch a single job by ID
+ * @param {string|number} id - Job ID
+ * @returns {Promise<Object>} Job data
+ */
+export const fetchJobById = async (id) => {
+  try {
+    if (!id) {
+      throw new Error('Job ID is required');
+    }
+
+    const response = await apiClient.get(`/jobs/${id}`);
+    return {
+      success: true,
+      data: response.data,
+      message: 'Job fetched successfully',
+    };
+  } catch (error) {
+    console.error('Error fetching job:', error);
+    return {
+      success: false,
+      data: null,
+      message: error.message || 'Failed to fetch job',
+      error,
+    };
+  }
+};
+
+// Export the configured axios instance for custom requests
+export { apiClient };
+
+// Export base URL for reference
+export { BASE_URL };
+
+// Default export with all API functions
+export default {
   fetchJobs,
-  fetchJobById,
   createJob,
   updateJob,
-  patchJob,
   deleteJob,
-  batchJobs,
-} = jobAPI;
+  fetchJobById,
+  apiClient,
+  BASE_URL,
+};
