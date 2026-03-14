@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 
+// Define the Job schema
 const jobSchema = new mongoose.Schema({
   title: {
     type: String,
@@ -13,6 +14,43 @@ const jobSchema = new mongoose.Schema({
     trim: true,
     maxlength: [100, 'Company name cannot exceed 100 characters']
   },
+  location: {
+    type: String,
+    required: [true, 'Location is required'],
+    trim: true,
+    maxlength: [100, 'Location cannot exceed 100 characters']
+  },
+  salary: {
+    type: {
+      min: {
+        type: Number,
+        min: [0, 'Minimum salary cannot be negative']
+      },
+      max: {
+        type: Number,
+        min: [0, 'Maximum salary cannot be negative']
+      },
+      currency: {
+        type: String,
+        default: 'USD',
+        enum: ['USD', 'EUR', 'GBP', 'CAD', 'AUD']
+      },
+      period: {
+        type: String,
+        default: 'yearly',
+        enum: ['hourly', 'monthly', 'yearly']
+      }
+    },
+    validate: {
+      validator: function(salary) {
+        if (salary && salary.min && salary.max) {
+          return salary.min <= salary.max;
+        }
+        return true;
+      },
+      message: 'Minimum salary cannot be greater than maximum salary'
+    }
+  },
   status: {
     type: String,
     required: [true, 'Application status is required'],
@@ -22,107 +60,155 @@ const jobSchema = new mongoose.Schema({
     },
     default: 'Applied'
   },
-  dateApplied: {
+  applicationDate: {
     type: Date,
-    required: [true, 'Date applied is required'],
-    default: Date.now
-  },
-  description: {
-    type: String,
-    trim: true,
-    maxlength: [2000, 'Description cannot exceed 2000 characters']
+    required: [true, 'Application date is required'],
+    default: Date.now,
+    validate: {
+      validator: function(date) {
+        return date <= new Date();
+      },
+      message: 'Application date cannot be in the future'
+    }
   },
   notes: {
     type: String,
     trim: true,
     maxlength: [1000, 'Notes cannot exceed 1000 characters']
   },
-  salary: {
-    type: Number,
-    min: [0, 'Salary cannot be negative']
+  contactInfo: {
+    recruiterName: {
+      type: String,
+      trim: true,
+      maxlength: [100, 'Recruiter name cannot exceed 100 characters']
+    },
+    recruiterEmail: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      validate: {
+        validator: function(email) {
+          if (!email) return true; // Optional field
+          return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+        },
+        message: 'Please provide a valid email address'
+      }
+    },
+    recruiterPhone: {
+      type: String,
+      trim: true,
+      validate: {
+        validator: function(phone) {
+          if (!phone) return true; // Optional field
+          return /^[\+]?[1-9][\d]{0,15}$/.test(phone.replace(/[\s\-\(\)]/g, ''));
+        },
+        message: 'Please provide a valid phone number'
+      }
+    },
+    companyWebsite: {
+      type: String,
+      trim: true,
+      validate: {
+        validator: function(url) {
+          if (!url) return true; // Optional field
+          return /^https?:\/\/.+/.test(url);
+        },
+        message: 'Please provide a valid URL starting with http:// or https://'
+      }
+    }
   },
+  // Additional metadata
   userId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: [true, 'User ID is required']
+  },
+  tags: [{
+    type: String,
+    trim: true,
+    maxlength: [30, 'Tag cannot exceed 30 characters']
+  }],
+  priority: {
+    type: String,
+    enum: ['Low', 'Medium', 'High'],
+    default: 'Medium'
+  },
+  followUpDate: {
+    type: Date
+  },
+  jobUrl: {
+    type: String,
+    trim: true,
+    validate: {
+      validator: function(url) {
+        if (!url) return true; // Optional field
+        return /^https?:\/\/.+/.test(url);
+      },
+      message: 'Please provide a valid job URL starting with http:// or https://'
+    }
   }
 }, {
-  timestamps: true,
+  timestamps: true, // Adds createdAt and updatedAt fields
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
 });
 
-// Index for efficient queries
-jobSchema.index({ userId: 1, dateApplied: -1 });
-jobSchema.index({ userId: 1, status: 1 });
-
-// Virtual for formatted salary
-jobSchema.virtual('formattedSalary').get(function() {
-  if (this.salary) {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD'
-    }).format(this.salary);
-  }
-  return null;
-});
-
-// Virtual for days since applied
-jobSchema.virtual('daysSinceApplied').get(function() {
+// Virtual for calculating days since application
+jobSchema.virtual('daysSinceApplication').get(function() {
+  if (!this.applicationDate) return null;
   const now = new Date();
-  const diffTime = Math.abs(now - this.dateApplied);
+  const diffTime = Math.abs(now - this.applicationDate);
   return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 });
 
-// Pre-save middleware to ensure dateApplied is not in the future
+// Index for better query performance
+jobSchema.index({ userId: 1, status: 1 });
+jobSchema.index({ applicationDate: -1 });
+jobSchema.index({ company: 1 });
+
+// Pre-save middleware to validate salary consistency
 jobSchema.pre('save', function(next) {
-  if (this.dateApplied > new Date()) {
-    return next(new Error('Date applied cannot be in the future'));
+  // Ensure consistent data formatting
+  if (this.contactInfo && this.contactInfo.recruiterEmail) {
+    this.contactInfo.recruiterEmail = this.contactInfo.recruiterEmail.toLowerCase();
   }
+  
+  // Clean up phone number
+  if (this.contactInfo && this.contactInfo.recruiterPhone) {
+    this.contactInfo.recruiterPhone = this.contactInfo.recruiterPhone.replace(/[\s\-\(\)]/g, '');
+  }
+  
   next();
 });
 
-// Instance method to update status
-jobSchema.methods.updateStatus = function(newStatus, notes) {
-  this.status = newStatus;
-  if (notes) {
-    this.notes = notes;
-  }
-  return this.save();
-};
-
-// Static method to get jobs by status for a user
+// Static method to find jobs by status
 jobSchema.statics.findByStatus = function(userId, status) {
-  return this.find({ userId, status }).sort({ dateApplied: -1 });
+  return this.find({ userId, status }).sort({ applicationDate: -1 });
 };
 
-// Static method to get job statistics for a user
-jobSchema.statics.getStats = function(userId) {
+// Static method to get application statistics
+jobSchema.statics.getApplicationStats = function(userId) {
   return this.aggregate([
     { $match: { userId: mongoose.Types.ObjectId(userId) } },
     {
       $group: {
         _id: '$status',
-        count: { $sum: 1 },
-        avgSalary: { $avg: '$salary' }
-      }
-    },
-    {
-      $group: {
-        _id: null,
-        total: { $sum: '$count' },
-        statusBreakdown: {
-          $push: {
-            status: '$_id',
-            count: '$count',
-            avgSalary: '$avgSalary'
-          }
-        }
+        count: { $sum: 1 }
       }
     }
   ]);
 };
 
+// Instance method to update status with timestamp
+jobSchema.methods.updateStatus = function(newStatus) {
+  this.status = newStatus;
+  if (newStatus === 'Interview') {
+    this.followUpDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
+  }
+  return this.save();
+};
+
+// Create and export the model
 const Job = mongoose.model('Job', jobSchema);
 
 module.exports = Job;
