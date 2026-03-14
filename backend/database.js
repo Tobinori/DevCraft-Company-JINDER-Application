@@ -1,276 +1,210 @@
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
-class Database {
-  constructor() {
-    this.db = null;
-    this.dbPath = path.join(__dirname, 'jinder.db');
+// Database file path
+const dbPath = path.join(__dirname, 'jinder.db');
+
+// Initialize database connection
+const db = new sqlite3.Database(dbPath, (err) => {
+  if (err) {
+    console.error('Error opening database:', err.message);
+  } else {
+    console.log('Connected to SQLite database');
+    initializeDatabase();
   }
+});
 
-  // Initialize database connection
-  async connect() {
-    return new Promise((resolve, reject) => {
-      this.db = new sqlite3.Database(this.dbPath, (err) => {
-        if (err) {
-          console.error('Error opening database:', err.message);
-          reject(err);
-        } else {
-          console.log('Connected to SQLite database');
-          this.initializeTables()
-            .then(() => resolve())
-            .catch((err) => reject(err));
-        }
-      });
-    });
-  }
+// Initialize database schema
+function initializeDatabase() {
+  // Create jobs table
+  const createJobsTable = `
+    CREATE TABLE IF NOT EXISTS jobs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      company TEXT NOT NULL,
+      position TEXT NOT NULL,
+      applicationDate DATE NOT NULL,
+      status TEXT NOT NULL DEFAULT 'applied',
+      salaryRange TEXT,
+      notes TEXT,
+      createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `;
 
-  // Initialize database tables
-  async initializeTables() {
-    const createJobsTable = `
-      CREATE TABLE IF NOT EXISTS jobs (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        company TEXT NOT NULL,
-        status TEXT NOT NULL CHECK (status IN ('applied', 'interview', 'rejected', 'offer', 'accepted')),
-        dateApplied DATE NOT NULL DEFAULT CURRENT_DATE,
-        description TEXT,
-        salary REAL,
-        location TEXT,
-        createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-      )
-    `;
-
-    return new Promise((resolve, reject) => {
-      this.db.run(createJobsTable, (err) => {
-        if (err) {
-          console.error('Error creating jobs table:', err.message);
-          reject(err);
-        } else {
-          console.log('Jobs table initialized successfully');
-          this.createIndexes()
-            .then(() => resolve())
-            .catch((err) => reject(err));
-        }
-      });
-    });
-  }
-
-  // Create database indexes for better performance
-  async createIndexes() {
-    const indexes = [
-      'CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status)',
-      'CREATE INDEX IF NOT EXISTS idx_jobs_company ON jobs(company)',
-      'CREATE INDEX IF NOT EXISTS idx_jobs_dateApplied ON jobs(dateApplied)'
-    ];
-
-    const promises = indexes.map(indexQuery => {
-      return new Promise((resolve, reject) => {
-        this.db.run(indexQuery, (err) => {
-          if (err) {
-            console.error('Error creating index:', err.message);
-            reject(err);
-          } else {
-            resolve();
-          }
-        });
-      });
-    });
-
-    try {
-      await Promise.all(promises);
-      console.log('Database indexes created successfully');
-    } catch (err) {
-      throw err;
+  db.run(createJobsTable, (err) => {
+    if (err) {
+      console.error('Error creating jobs table:', err.message);
+    } else {
+      console.log('Jobs table created successfully');
+      seedSampleData();
     }
-  }
-
-  // Create a new job entry
-  async createJob(jobData) {
-    const { title, company, status, dateApplied, description, salary, location } = jobData;
-    
-    const query = `
-      INSERT INTO jobs (title, company, status, dateApplied, description, salary, location)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `;
-
-    return new Promise((resolve, reject) => {
-      this.db.run(query, [title, company, status, dateApplied, description, salary, location], function(err) {
-        if (err) {
-          console.error('Error creating job:', err.message);
-          reject(err);
-        } else {
-          console.log(`Job created with ID: ${this.lastID}`);
-          resolve({ id: this.lastID, ...jobData });
-        }
-      });
-    });
-  }
-
-  // Get all jobs with optional filtering
-  async getJobs(filters = {}) {
-    let query = 'SELECT * FROM jobs';
-    const params = [];
-    const conditions = [];
-
-    if (filters.status) {
-      conditions.push('status = ?');
-      params.push(filters.status);
-    }
-
-    if (filters.company) {
-      conditions.push('company LIKE ?');
-      params.push(`%${filters.company}%`);
-    }
-
-    if (conditions.length > 0) {
-      query += ' WHERE ' + conditions.join(' AND ');
-    }
-
-    query += ' ORDER BY dateApplied DESC';
-
-    return new Promise((resolve, reject) => {
-      this.db.all(query, params, (err, rows) => {
-        if (err) {
-          console.error('Error fetching jobs:', err.message);
-          reject(err);
-        } else {
-          resolve(rows);
-        }
-      });
-    });
-  }
-
-  // Get a job by ID
-  async getJobById(id) {
-    const query = 'SELECT * FROM jobs WHERE id = ?';
-
-    return new Promise((resolve, reject) => {
-      this.db.get(query, [id], (err, row) => {
-        if (err) {
-          console.error('Error fetching job:', err.message);
-          reject(err);
-        } else {
-          resolve(row);
-        }
-      });
-    });
-  }
-
-  // Update a job
-  async updateJob(id, updates) {
-    const allowedFields = ['title', 'company', 'status', 'dateApplied', 'description', 'salary', 'location'];
-    const validUpdates = {};
-    
-    // Filter valid fields
-    Object.keys(updates).forEach(key => {
-      if (allowedFields.includes(key)) {
-        validUpdates[key] = updates[key];
-      }
-    });
-
-    if (Object.keys(validUpdates).length === 0) {
-      throw new Error('No valid fields to update');
-    }
-
-    const fields = Object.keys(validUpdates).map(key => `${key} = ?`).join(', ');
-    const values = Object.values(validUpdates);
-    values.push(id);
-
-    const query = `UPDATE jobs SET ${fields}, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`;
-
-    return new Promise((resolve, reject) => {
-      this.db.run(query, values, function(err) {
-        if (err) {
-          console.error('Error updating job:', err.message);
-          reject(err);
-        } else if (this.changes === 0) {
-          reject(new Error('Job not found'));
-        } else {
-          console.log(`Job ${id} updated successfully`);
-          resolve({ id, ...validUpdates });
-        }
-      });
-    });
-  }
-
-  // Delete a job
-  async deleteJob(id) {
-    const query = 'DELETE FROM jobs WHERE id = ?';
-
-    return new Promise((resolve, reject) => {
-      this.db.run(query, [id], function(err) {
-        if (err) {
-          console.error('Error deleting job:', err.message);
-          reject(err);
-        } else if (this.changes === 0) {
-          reject(new Error('Job not found'));
-        } else {
-          console.log(`Job ${id} deleted successfully`);
-          resolve({ deleted: true, id });
-        }
-      });
-    });
-  }
-
-  // Get job statistics
-  async getJobStats() {
-    const query = `
-      SELECT 
-        status,
-        COUNT(*) as count,
-        AVG(salary) as avgSalary
-      FROM jobs 
-      WHERE salary IS NOT NULL
-      GROUP BY status
-    `;
-
-    return new Promise((resolve, reject) => {
-      this.db.all(query, [], (err, rows) => {
-        if (err) {
-          console.error('Error fetching job stats:', err.message);
-          reject(err);
-        } else {
-          resolve(rows);
-        }
-      });
-    });
-  }
-
-  // Close database connection
-  async close() {
-    return new Promise((resolve, reject) => {
-      if (this.db) {
-        this.db.close((err) => {
-          if (err) {
-            console.error('Error closing database:', err.message);
-            reject(err);
-          } else {
-            console.log('Database connection closed');
-            resolve();
-          }
-        });
-      } else {
-        resolve();
-      }
-    });
-  }
-
-  // Health check for database
-  async healthCheck() {
-    return new Promise((resolve, reject) => {
-      this.db.get('SELECT 1 as test', [], (err, row) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve({ status: 'healthy', timestamp: new Date().toISOString() });
-        }
-      });
-    });
-  }
+  });
 }
 
-// Singleton instance
-const database = new Database();
+// Seed sample data
+function seedSampleData() {
+  // Check if data already exists
+  db.get('SELECT COUNT(*) as count FROM jobs', (err, row) => {
+    if (err) {
+      console.error('Error checking existing data:', err.message);
+      return;
+    }
 
-module.exports = database;
+    if (row.count === 0) {
+      console.log('Seeding sample data...');
+      
+      const sampleJobs = [
+        {
+          company: 'Google',
+          position: 'Senior Software Engineer',
+          applicationDate: '2024-01-15',
+          status: 'interview',
+          salaryRange: '$150k - $200k',
+          notes: 'Great team culture, exciting AI projects. Technical interview scheduled for next week.'
+        },
+        {
+          company: 'Meta',
+          position: 'Full Stack Developer',
+          applicationDate: '2024-01-10',
+          status: 'applied',
+          salaryRange: '$140k - $180k',
+          notes: 'Applied through referral. Focus on React and Node.js development.'
+        },
+        {
+          company: 'Netflix',
+          position: 'Backend Engineer',
+          applicationDate: '2024-01-08',
+          status: 'rejected',
+          salaryRange: '$130k - $170k',
+          notes: 'Unfortunately did not move forward after phone screening. Great learning experience.'
+        },
+        {
+          company: 'Stripe',
+          position: 'Software Engineer - Payments',
+          applicationDate: '2024-01-20',
+          status: 'offer',
+          salaryRange: '$160k - $220k',
+          notes: 'Received offer! Exciting fintech opportunity with competitive package. Decision deadline is Feb 1st.'
+        },
+        {
+          company: 'Airbnb',
+          position: 'Frontend Engineer',
+          applicationDate: '2024-01-12',
+          status: 'interview',
+          salaryRange: '$135k - $175k',
+          notes: 'Second round interview completed. Focus on React, TypeScript, and user experience.'
+        },
+        {
+          company: 'Spotify',
+          position: 'DevOps Engineer',
+          applicationDate: '2024-01-18',
+          status: 'applied',
+          salaryRange: '$125k - $165k',
+          notes: 'Music streaming infrastructure role. Emphasis on Kubernetes and microservices.'
+        }
+      ];
+
+      const insertStmt = db.prepare(`
+        INSERT INTO jobs (company, position, applicationDate, status, salaryRange, notes)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `);
+
+      sampleJobs.forEach((job) => {
+        insertStmt.run(
+          job.company,
+          job.position,
+          job.applicationDate,
+          job.status,
+          job.salaryRange,
+          job.notes
+        );
+      });
+
+      insertStmt.finalize((err) => {
+        if (err) {
+          console.error('Error seeding data:', err.message);
+        } else {
+          console.log('Sample data seeded successfully');
+        }
+      });
+    } else {
+      console.log('Database already contains data, skipping seed');
+    }
+  });
+}
+
+// Database helper functions
+const dbHelpers = {
+  // Get all jobs
+  getAllJobs: (callback) => {
+    db.all('SELECT * FROM jobs ORDER BY createdAt DESC', callback);
+  },
+
+  // Get job by ID
+  getJobById: (id, callback) => {
+    db.get('SELECT * FROM jobs WHERE id = ?', [id], callback);
+  },
+
+  // Create new job
+  createJob: (jobData, callback) => {
+    const { company, position, applicationDate, status, salaryRange, notes } = jobData;
+    const stmt = `
+      INSERT INTO jobs (company, position, applicationDate, status, salaryRange, notes)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `;
+    db.run(stmt, [company, position, applicationDate, status, salaryRange, notes], function(err) {
+      callback(err, this.lastID);
+    });
+  },
+
+  // Update job
+  updateJob: (id, jobData, callback) => {
+    const { company, position, applicationDate, status, salaryRange, notes } = jobData;
+    const stmt = `
+      UPDATE jobs 
+      SET company = ?, position = ?, applicationDate = ?, status = ?, 
+          salaryRange = ?, notes = ?, updatedAt = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `;
+    db.run(stmt, [company, position, applicationDate, status, salaryRange, notes, id], callback);
+  },
+
+  // Delete job
+  deleteJob: (id, callback) => {
+    db.run('DELETE FROM jobs WHERE id = ?', [id], callback);
+  },
+
+  // Get jobs by status
+  getJobsByStatus: (status, callback) => {
+    db.all('SELECT * FROM jobs WHERE status = ? ORDER BY createdAt DESC', [status], callback);
+  },
+
+  // Search jobs
+  searchJobs: (query, callback) => {
+    const searchQuery = `%${query}%`;
+    const stmt = `
+      SELECT * FROM jobs 
+      WHERE company LIKE ? OR position LIKE ? OR notes LIKE ?
+      ORDER BY createdAt DESC
+    `;
+    db.all(stmt, [searchQuery, searchQuery, searchQuery], callback);
+  }
+};
+
+// Graceful shutdown
+process.on('SIGINT', () => {
+  console.log('\nClosing database connection...');
+  db.close((err) => {
+    if (err) {
+      console.error('Error closing database:', err.message);
+    } else {
+      console.log('Database connection closed');
+    }
+    process.exit(0);
+  });
+});
+
+module.exports = {
+  db,
+  ...dbHelpers
+};
