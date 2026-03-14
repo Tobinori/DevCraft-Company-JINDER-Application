@@ -1,19 +1,14 @@
 const express = require('express');
 const cors = require('cors');
+const bodyParser = require('body-parser');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Middleware
-app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://your-frontend-domain.com'] 
-    : ['http://localhost:3000', 'http://localhost:3001'],
-  credentials: true
-}));
-
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true }));
+// Middleware setup
+app.use(cors());
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -23,17 +18,23 @@ app.use((req, res, next) => {
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
+  res.status(200).json({
+    status: 'OK',
+    service: 'Jinder Job Tracker API'
+  });
 });
 
-// Basic route for testing
+// Default route
 app.get('/', (req, res) => {
-  res.json({ message: 'JINDER Backend API is running!' });
+  res.status(200).json({
+    message: 'Welcome to Jinder Job Tracker API',
+    version: '1.0.0'
+  });
 });
 
 // 404 handler for undefined routes
 app.use('*', (req, res) => {
-  res.status(404).json({ 
+  res.status(404).json({
     error: 'Route not found',
     message: `Cannot ${req.method} ${req.originalUrl}`
   });
@@ -41,45 +42,30 @@ app.use('*', (req, res) => {
 
 // Global error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Error occurred:', err);
+  console.error('Error occurred:', err.stack);
   
-  // Handle different error types
-  if (err.type === 'entity.parse.failed') {
-    return res.status(400).json({
-      error: 'Invalid JSON',
-      message: 'Request body contains invalid JSON'
-    });
-  }
-  
-  if (err.name === 'ValidationError') {
-    return res.status(400).json({
-      error: 'Validation Error',
-      message: err.message
-    });
-  }
-  
-  // Default error response
   res.status(err.status || 500).json({
     error: 'Internal Server Error',
-    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
+    message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong',
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
   });
 });
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 JINDER backend server is running on port ${PORT}`);
-  console.log(`📍 Health check available at: http://localhost:${PORT}/api/health`);
+  console.log(`🚀 Jinder Job Tracker API server is running on port ${PORT}`);
+  console.log(`📍 Health check: http://localhost:${PORT}/api/health`);
   console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
 // Graceful shutdown handling
-process.on('SIGINT', () => {
-  console.log('\n👋 Received SIGINT. Graceful shutdown...');
+process.on('SIGTERM', () => {
+  console.log('SIGTERM received, shutting down gracefully');
   process.exit(0);
 });
 
-process.on('SIGTERM', () => {
-  console.log('\n👋 Received SIGTERM. Graceful shutdown...');
+process.on('SIGINT', () => {
+  console.log('SIGINT received, shutting down gracefully');
   process.exit(0);
 });
 
